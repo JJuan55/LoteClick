@@ -585,8 +585,10 @@ public class FinanzasService {
                 lote.setEstado("DISPONIBLE");
             } else if (i <= 15) {
                 lote.setEstado("SEPARADO");
-            } else {
+            } else if (i <= 18) {
                 lote.setEstado("VENDIDO");
+            } else {
+                lote.setEstado("DISPONIBLE");
             }
             loteRepository.save(lote);
         }
@@ -725,8 +727,33 @@ public class FinanzasService {
             contrato.setCuotaSeparacion(separacion);
             contrato.setPlazoMeses(plazo);
             contrato.setFechaVenta(LocalDate.now().minusMonths(2));
-            contrato.setUrlPdfContrato("/uploads/contrato_test_lote_" + numeroLote + "_" + etapa.getNombreEtapa().replace(" ", "") + ".txt");
-            contrato.setUrlPdfPropiedad("/uploads/propiedad_test_lote_" + numeroLote + "_" + etapa.getNombreEtapa().replace(" ", "") + ".pdf");
+            
+            // Generar los PDFs reales
+            try {
+                String urlContrato = storageService.generarContratoPdfSimulado(
+                        String.valueOf(numeroLote),
+                        etapa.getNombreEtapa(),
+                        comprador.getNombre(),
+                        comprador.getCedula(),
+                        lote.getPrecioBase().toString(),
+                        separacion.toString(),
+                        plazo
+                );
+                contrato.setUrlPdfContrato(urlContrato);
+
+                String urlPropiedad = storageService.generarTituloPropiedadPdfSimulado(
+                        String.valueOf(numeroLote),
+                        etapa.getNombreEtapa(),
+                        comprador.getNombre(),
+                        comprador.getCedula()
+                );
+                contrato.setUrlPdfPropiedad(urlPropiedad);
+            } catch (Exception e) {
+                e.printStackTrace();
+                // Fallback in case of error
+                contrato.setUrlPdfContrato("/uploads/contrato_test_lote_" + numeroLote + "_" + etapa.getNombreEtapa().replace(" ", "") + ".pdf");
+                contrato.setUrlPdfPropiedad("/uploads/propiedad_test_lote_" + numeroLote + "_" + etapa.getNombreEtapa().replace(" ", "") + ".pdf");
+            }
             
             VentaContrato guardado = ventaContratoRepository.save(contrato);
 
@@ -747,9 +774,38 @@ public class FinanzasService {
                 } else {
                     cuota.setEstadoPago("PENDIENTE");
                 }
-                cuotas.add(cuota);
+                
+                cuota = cuotaAmortizacionRepository.save(cuota);
+                
+                // Si la cuota está pagada, crear el recibo y el PagoIngreso
+                if ("PAGADA".equals(cuota.getEstadoPago())) {
+                    PagoIngreso pago = new PagoIngreso();
+                    pago.setCuota(cuota);
+                    pago.setVenta(guardado);
+                    pago.setUsuario(vendedor);
+                    pago.setMontoPagado(montoCuota);
+                    pago.setFechaPago(contrato.getFechaVenta().plusMonths(i).atStartOfDay());
+                    pago.setConcepto("Abono de cuota " + i + " - Semilla");
+                    
+                    try {
+                        String numRecibo = "RC-" + String.format("%05d", (int)(Math.random() * 100000));
+                        String urlRecibo = storageService.generarReciboPdfSimulado(
+                            numRecibo,
+                            lote.getNumeroLote().toString(),
+                            comprador.getNombre(),
+                            comprador.getCedula(),
+                            montoCuota.toString(),
+                            pago.getConcepto(),
+                            vendedor.getNombreCompleto()
+                        );
+                        pago.setUrlPdfRecibo(urlRecibo);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    
+                    pagoIngresoRepository.save(pago);
+                }
             }
-            cuotaAmortizacionRepository.saveAll(cuotas);
         }
     }
 }
