@@ -1,0 +1,23 @@
+============================================================
+                   COMPROBANTE DE RECIBO DE CAJA            
+             PROYECTO INMOBILIARIO MIRADOR DE SAN ANTONIO    
+============================================================
+
+RECIBO DE CAJA NRO: RC-00002
+FECHA/HORA: 2026-06-04 11:15:25
+
+DATOS DEL COMPRADOR (CLIENTE):
+  Nombre: Juan Valdez
+  Cedula: 111222
+
+DETALLES DEL ABONO:
+  Lote Adquirido: Lote 3
+  Concepto de Pago: CUOTA_ORDINARIA
+  Monto Pagado: $ 46125000 COP
+
+DATOS DE REGISTRO INTERNO:
+  Recibido por: Vendedor Almaros
+------------------------------------------------------------
+Este recibo es un comprobante de abono valido para el saldo  
+del lote citado en el plan de amortizacion.                 
+============================================================

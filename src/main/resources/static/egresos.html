@@ -1,0 +1,356 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoteClick - Control de Egresos</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Animate.css -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --color-navy: #0B2545;
+            --color-blue: #134074;
+            --color-gray-bg: #EEF4F8;
+            --color-danger: #E63946;
+            --color-success: #2A9D8F;
+            --sidebar-width: 260px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-gray-bg);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Fija */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--color-navy);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            z-index: 100;
+            box-shadow: 4px 0 15px rgba(11, 37, 69, 0.15);
+        }
+
+        .sidebar-brand {
+            padding: 1.5rem;
+            font-weight: 700;
+            font-size: 1.4rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 1.5rem 0;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .menu-item a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0.85rem 1.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .menu-item.active a, .menu-item a:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left-color: var(--color-success);
+        }
+
+        .sidebar-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Contenedor Principal */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .navbar-custom {
+            background-color: #ffffff;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            box-shadow: 0 2px 10px rgba(11, 37, 69, 0.05);
+        }
+
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-badge {
+            background-color: var(--color-gray-bg);
+            color: var(--color-navy);
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid rgba(11, 37, 69, 0.1);
+        }
+
+        .btn-logout {
+            color: var(--color-danger);
+            border: 1.5px solid var(--color-danger);
+            background: transparent;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.4rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-logout:hover {
+            background-color: var(--color-danger);
+            color: #ffffff;
+        }
+
+        .content-body {
+            padding: 2rem;
+        }
+
+        .bg-navy {
+            background-color: var(--color-navy) !important;
+        }
+
+        .btn-navy {
+            background-color: var(--color-navy);
+            color: #ffffff;
+            border: none;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn-navy:hover {
+            background-color: var(--color-blue);
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Seguridad: Validar sesión antes de renderizar nada visible -->
+    <script>
+        const activeUser = sessionStorage.getItem("user");
+        if (!activeUser) {
+            alert("Acceso denegado. Inicie sesión primero.");
+            window.location.href = "index.html";
+        } else {
+            const user = JSON.parse(activeUser);
+            // Restringir si no es CONTADOR o ADMINISTRADOR (CU01 / CU06)
+            if (user.rol !== "CONTADOR" && user.rol !== "ADMINISTRADOR") {
+                alert("No tiene permisos para ver esta sección.");
+                window.location.href = user.rol === "VENDEDOR" ? "inventario.html" : "index.html";
+            }
+        }
+    </script>
+
+    <!-- Sidebar Lateral -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <i class="bi bi-geo-fill text-success"></i>
+            <span>LoteClick</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item" id="menuDashboard" style="display: none;">
+                <a href="dashboard.html"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+            </li>
+            <li class="menu-item" id="menuLotes" style="display: none;">
+                <a href="inventario.html"><i class="bi bi-map-fill"></i> Inventario Lotes</a>
+            </li>
+            <li class="menu-item" id="menuCartera">
+                <a href="cartera.html"><i class="bi bi-person-card-heading"></i> Cartera / Clientes</a>
+            </li>
+            <li class="menu-item active">
+                <a href="egresos.html"><i class="bi bi-cash-stack"></i> Egresos</a>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <span class="small opacity-50">ALMAROS v0.1</span>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="main-content">
+        <!-- Barra de Navegación Superior -->
+        <div class="navbar-custom">
+            <h4 class="m-0 text-navy" style="color: var(--color-navy); font-weight: 700;">Control de Egresos</h4>
+            <div class="navbar-user">
+                <button class="btn btn-outline-secondary btn-sm me-2 fw-semibold" id="resetDbBtn" title="Restablecer base de datos al estado semilla original"><i class="bi bi-arrow-clockwise"></i> Restablecer BD</button>
+                <span class="user-badge" id="userNameLabel">Cargando...</span>
+                <button class="btn btn-logout" id="logoutBtn"><i class="bi bi-box-arrow-right"></i> Salir</button>
+            </div>
+        </div>
+
+        <!-- Cuerpo de Egresos -->
+        <div class="content-body animate__animated animate__fadeIn">
+            <!-- Encabezado con Botón de Registrar Gasto -->
+            <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
+                <div>
+                    <h5 class="text-navy fw-bold mb-1" style="color: var(--color-navy);"><i class="bi bi-wallet2 text-success"></i> Flujo de Caja y Gastos Operativos</h5>
+                    <p class="text-muted small mb-0">Registre salidas de dinero y filtre el historial de egresos por rango de fechas.</p>
+                </div>
+                <button class="btn btn-navy text-white fw-bold px-4 py-2.5 rounded-3 shadow-sm animate__animated animate__pulse animate__infinite" style="animation-duration: 2s;" data-bs-toggle="modal" data-bs-target="#egresoModal">
+                    <i class="bi bi-plus-circle-fill me-2"></i> Registrar Gasto Operativo
+                </button>
+            </div>
+
+            <!-- Filtros de Auditoría y Liquidación -->
+            <div class="card border-0 shadow-sm p-4 mb-4 rounded-4" style="background: #ffffff;">
+                <h6 class="text-navy fw-bold mb-3"><i class="bi bi-funnel-fill text-success"></i> Filtros de Auditoría Contable</h6>
+                <form id="filtroEgresosForm" class="row align-items-end g-3">
+                    <div class="col-md-4 col-sm-6">
+                        <label for="fechaInicio" class="form-label small fw-semibold text-navy">Fecha Inicio</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-calendar-date"></i></span>
+                            <input type="date" class="form-control bg-light border-start-0" id="fechaInicio">
+                        </div>
+                    </div>
+                    <div class="col-md-4 col-sm-6">
+                        <label for="fechaFin" class="form-label small fw-semibold text-navy">Fecha Fin</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-calendar-date"></i></span>
+                            <input type="date" class="form-control bg-light border-start-0" id="fechaFin">
+                        </div>
+                    </div>
+                    <div class="col-md-4 d-flex gap-2">
+                        <button type="submit" class="btn btn-navy text-white fw-bold w-100 py-2.5 rounded-3">
+                            <i class="bi bi-calculator"></i> Liquidar Gastos
+                        </button>
+                        <button type="button" class="btn btn-light fw-bold border py-2.5 rounded-3" id="btnLimpiarFiltros">
+                            Limpiar
+                        </button>
+                    </div>
+                </form>
+            </div>
+
+            <!-- Resumen Financiero Rápido -->
+            <div class="row g-3 mb-4">
+                <div class="col-md-4 col-sm-6">
+                    <div class="card border-0 shadow-sm p-3 rounded-3 bg-navy text-white h-100">
+                        <span class="small opacity-75 d-block mb-1">Total Egresos en Rango</span>
+                        <h3 class="fw-bold m-0" id="totalEgresosLabel">$ 0 COP</h3>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <div class="card border-0 shadow-sm p-3 rounded-3 bg-white text-navy h-100 border">
+                        <span class="small text-muted d-block mb-1">Cantidad de Gastos</span>
+                        <h3 class="fw-bold m-0 text-navy" id="cantidadEgresosLabel">0 registros</h3>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tabla de Historial de Egresos -->
+            <div class="card border-0 shadow-sm p-4 rounded-4" style="background: #ffffff;">
+                <h6 class="text-navy fw-bold mb-3"><i class="bi bi-table text-success"></i> Historial Cronológico de Gastos</h6>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="bg-light">
+                            <tr>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Fecha</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Rubro Contable</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Descripción</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Monto (COP)</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Registrado Por</th>
+                            </tr>
+                        </thead>
+                        <tbody id="egresosTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando egresos...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Registrar Gasto Operativo -->
+    <div class="modal fade" id="egresoModal" tabindex="-1" aria-labelledby="egresoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-navy text-white p-3 px-4" style="background-color: var(--color-navy) !important;">
+                    <h5 class="modal-title" id="egresoModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-cash-stack"></i> Registrar Gasto Operativo
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="egresoAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="egresoAlertText"></span>
+                    </div>
+                    <form id="egresoForm">
+                        <div class="mb-3">
+                            <label for="egresoRubro" class="form-label text-navy fw-semibold">Rubro de Gasto <span class="text-danger">*</span></label>
+                            <select class="form-select" id="egresoRubro" required>
+                                <option value="" disabled selected>Seleccione una categoría...</option>
+                                <option value="MAQUINARIA">MAQUINARIA</option>
+                                <option value="SUMINISTRO_AGUA">SUMINISTRO_AGUA</option>
+                                <option value="SERVICIOS_PUBLICOS">SERVICIOS_PUBLICOS</option>
+                                <option value="EXCAVACION">EXCAVACION</option>
+                                <option value="OTROS">OTROS</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="egresoMonto" class="form-label text-navy fw-semibold">Monto del Gasto (COP) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control fw-bold text-danger fs-5" id="egresoMonto" placeholder="Ej. 1200000" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="egresoFecha" class="form-label text-navy fw-semibold">Fecha del Gasto <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="egresoFecha" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="egresoDescripcion" class="form-label text-navy fw-semibold">Descripción Detallada <span class="text-danger">*</span></label>
+                            <textarea class="form-control" id="egresoDescripcion" rows="3" placeholder="Escriba el detalle de la compra o servicio..." required></textarea>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-navy text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarEgreso">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="egresoSpinner" role="status" aria-hidden="true"></span>
+                                Confirmar Registro
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <!-- Custom Script JS -->
+    <script src="js/pagos.js"></script>
+</body>
+</html>

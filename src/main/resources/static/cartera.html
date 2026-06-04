@@ -1,0 +1,784 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoteClick - Control de Cartera</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Animate.css -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --color-navy: #0B2545;
+            --color-blue: #134074;
+            --color-gray-bg: #EEF4F8;
+            --color-danger: #E63946;
+            --color-success: #2A9D8F;
+            --color-warning: #E9C46A;
+            --sidebar-width: 260px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-gray-bg);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Fija */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--color-navy);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            z-index: 100;
+            box-shadow: 4px 0 15px rgba(11, 37, 69, 0.15);
+        }
+
+        .sidebar-brand {
+            padding: 1.5rem;
+            font-weight: 700;
+            font-size: 1.4rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 1.5rem 0;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .menu-item a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0.85rem 1.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .menu-item.active a, .menu-item a:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left-color: var(--color-success);
+        }
+
+        .sidebar-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Contenedor Principal */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .navbar-custom {
+            background-color: #ffffff;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            box-shadow: 0 2px 10px rgba(11, 37, 69, 0.05);
+        }
+
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-badge {
+            background-color: var(--color-gray-bg);
+            color: var(--color-navy);
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid rgba(11, 37, 69, 0.1);
+        }
+
+        .btn-logout {
+            color: var(--color-danger);
+            border: 1.5px solid var(--color-danger);
+            background: transparent;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.4rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-logout:hover {
+            background-color: var(--color-danger);
+            color: #ffffff;
+        }
+
+        .content-body {
+            padding: 2rem;
+        }
+
+        .bg-navy {
+            background-color: var(--color-navy) !important;
+        }
+
+        .btn-navy {
+            background-color: var(--color-navy);
+            color: #ffffff;
+            border: none;
+            transition: background-color 0.2s ease;
+        }
+
+        .btn-navy:hover {
+            background-color: var(--color-blue);
+            color: #ffffff;
+        }
+
+        /* Semaforización de cuotas */
+        .badge-pendiente {
+            background-color: rgba(233, 196, 106, 0.15) !important;
+            color: #b5860b !important;
+            border: 1px solid rgba(233, 196, 106, 0.3);
+        }
+
+        .badge-pagada {
+            background-color: rgba(42, 157, 143, 0.15) !important;
+            color: #1c6b61 !important;
+            border: 1px solid rgba(42, 157, 143, 0.3);
+        }
+
+        .badge-vencida {
+            background-color: rgba(230, 57, 70, 0.15) !important;
+            color: #b8232e !important;
+            border: 1px solid rgba(230, 57, 70, 0.3);
+        }
+
+        .cursor-pointer {
+            cursor: pointer;
+        }
+
+        .lote-selector-card {
+            transition: all 0.2s ease;
+            border: 2px solid rgba(11, 37, 69, 0.08) !important;
+            border-radius: 12px;
+            background: #ffffff;
+        }
+
+        .lote-selector-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 6px 12px rgba(11, 37, 69, 0.08) !important;
+            border-color: var(--color-blue) !important;
+        }
+
+        .lote-selector-card.active {
+            border-color: var(--color-success) !important;
+            background-color: rgba(42, 157, 143, 0.05) !important;
+            box-shadow: 0 6px 12px rgba(42, 157, 143, 0.1) !important;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Seguridad: Validar sesión antes de renderizar nada visible -->
+    <script>
+        const activeUser = sessionStorage.getItem("user");
+        if (!activeUser) {
+            alert("Acceso denegado. Inicie sesión primero.");
+            window.location.href = "index.html";
+        }
+    </script>
+
+    <!-- Sidebar Lateral -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <i class="bi bi-geo-fill text-success"></i>
+            <span>LoteClick</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item" id="menuDashboard" style="display: none;">
+                <a href="dashboard.html"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+            </li>
+            <li class="menu-item">
+                <a href="inventario.html"><i class="bi bi-map-fill"></i> Inventario Lotes</a>
+            </li>
+            <li class="menu-item active">
+                <a href="cartera.html"><i class="bi bi-person-card-heading"></i> Cartera / Clientes</a>
+            </li>
+            <li class="menu-item" id="menuEgresos" style="display: none;">
+                <a href="egresos.html"><i class="bi bi-wallet2"></i> Egresos</a>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <span class="small opacity-50">ALMAROS v0.1</span>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="main-content">
+        <!-- Barra de Navegación Superior -->
+        <div class="navbar-custom">
+            <h4 class="m-0 text-navy" style="color: var(--color-navy); font-weight: 700;">Estado de Cuenta - Cartera</h4>
+            <div class="navbar-user">
+                <button class="btn btn-outline-secondary btn-sm me-2 fw-semibold" id="resetDbBtn" title="Restablecer base de datos al estado semilla original"><i class="bi bi-arrow-clockwise"></i> Restablecer BD</button>
+                <span class="user-badge" id="userNameLabel">Cargando...</span>
+                <button class="btn btn-logout" id="logoutBtn"><i class="bi bi-box-arrow-right"></i> Salir</button>
+            </div>
+        </div>
+
+        <!-- Cuerpo -->
+        <div class="content-body animate__animated animate__fadeIn">
+            <!-- Barra de búsqueda del Cliente -->
+            <div class="card border-0 shadow-sm p-4 mb-4" style="border-radius: 12px; background: #ffffff;">
+                <div class="row align-items-center g-3">
+                    <div class="col-md-6">
+                        <label for="cedulaSearch" class="form-label fw-bold text-navy" style="font-weight: 600;">Buscar Estado de Cuenta por Cédula</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0 text-muted"><i class="bi bi-card-text"></i></span>
+                            <input type="text" class="form-control bg-light border-start-0 text-navy fw-bold" id="cedulaSearch" placeholder="Ingrese número de cédula del comprador...">
+                            <button class="btn btn-navy text-white fw-bold" type="button" id="btnBuscarEstado">
+                                <i class="bi bi-search"></i> Buscar
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Div para alertas/estados vacíos -->
+            <div id="statusAlert" class="alert alert-info border-info bg-info bg-opacity-10 text-dark p-4 rounded-4 text-center">
+                <i class="bi bi-person-badge fs-1 text-info"></i>
+                <h5 class="mt-3" style="font-weight: 600;">Consulte la Cartera</h5>
+                <p class="mb-0 text-muted">Ingrese la cédula de un comprador arriba para verificar su plan de amortización mensual o verifique el mapa de lotes.</p>
+            </div>
+
+            <!-- Ficha Técnica del Comprador y Contrato (Oculto inicialmente) -->
+            <div id="carteraDataContainer" class="d-none animate__animated animate__fadeIn">
+                <!-- Mini-vista selectora de lotes -->
+                <div id="loteSelectorSection" class="card border-0 shadow-sm p-4 mb-4 rounded-4 d-none" style="background: #ffffff;">
+                    <h5 class="text-navy fw-bold mb-3"><i class="bi bi-collection-fill text-success"></i> Propiedades Asociadas</h5>
+                    <div id="loteCardsRow" class="row g-3">
+                        <!-- Tarjetas de lote cargadas dinámicamente -->
+                    </div>
+                </div>
+
+                <div class="row g-4">
+                    <!-- Ficha del Cliente -->
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm p-4 h-100 rounded-4" style="background: #ffffff;">
+                            <h5 class="text-navy fw-bold mb-4" style="border-bottom: 2px solid var(--color-gray-bg); padding-bottom: 10px;">
+                                <i class="bi bi-person-lines-fill text-success"></i> Datos del Comprador
+                            </h5>
+                            <div class="mb-3">
+                                <span class="text-muted d-block small">Nombre Completo</span>
+                                <span class="fw-bold text-navy fs-5" id="clientNombre">-</span>
+                            </div>
+                            <div class="mb-3">
+                                <span class="text-muted d-block small">Cédula de Identidad</span>
+                                <span class="fw-bold text-navy" id="clientCedula">-</span>
+                            </div>
+                            <div class="mb-3">
+                                <span class="text-muted d-block small">Teléfono de Contacto</span>
+                                <span class="fw-bold text-navy" id="clientTelefono">-</span>
+                            </div>
+                            <div class="mb-3">
+                                <span class="text-muted d-block small">Correo Electrónico</span>
+                                <span class="fw-bold text-navy" id="clientCorreo">-</span>
+                            </div>
+                            <div class="mb-0">
+                                <span class="text-muted d-block small">Dirección</span>
+                                <span class="fw-bold text-navy" id="clientDireccion">-</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Datos del Lote y Contrato -->
+                    <div class="col-md-8">
+                        <div class="card border-0 shadow-sm p-4 h-100 rounded-4" style="background: #ffffff;">
+                            <h5 class="text-navy fw-bold mb-4" style="border-bottom: 2px solid var(--color-gray-bg); padding-bottom: 10px;">
+                                <i class="bi bi-file-earmark-text-fill text-success"></i> Detalles de Venta y Financiación
+                            </h5>
+                            <div class="row g-3 mb-4">
+                                <div class="col-sm-3 col-6 text-center py-2 bg-light rounded-3 border-end">
+                                    <span class="text-muted d-block small">Lote Adquirido</span>
+                                    <span class="fw-bold text-navy fs-5" id="contratoLote">-</span>
+                                </div>
+                                <div class="col-sm-3 col-6 text-center py-2 bg-light rounded-3 border-end">
+                                    <span class="text-muted d-block small">Área del Terreno</span>
+                                    <span class="fw-bold text-navy fs-5" id="contratoArea">-</span>
+                                </div>
+                                <div class="col-sm-3 col-6 text-center py-2 bg-light rounded-3 border-end">
+                                    <span class="text-muted d-block small">Precio Pactado</span>
+                                    <span class="fw-bold text-navy fs-5 text-success" id="contratoPrecio">-</span>
+                                </div>
+                                <div class="col-sm-3 col-6 text-center py-2 bg-light rounded-3">
+                                    <span class="text-muted d-block small">Cuota Separación</span>
+                                    <span class="fw-bold text-navy fs-5 text-success" id="contratoSeparacion">-</span>
+                                </div>
+                            </div>
+
+                            <div class="row mb-3">
+                                <div class="col-sm-6">
+                                    <span class="text-muted">Plazo del Crédito:</span>
+                                    <strong class="text-navy" id="contratoPlazo">-</strong>
+                                </div>
+                                <div class="col-sm-6">
+                                    <span class="text-muted">Fecha de Venta:</span>
+                                    <strong class="text-navy" id="contratoFecha">-</strong>
+                                </div>
+                            </div>
+
+                            <!-- Documentos Descargables -->
+                            <div class="d-flex flex-wrap gap-2 mt-4">
+                                <a id="btnDescargarContrato" href="#" target="_blank" class="btn btn-navy text-white fw-bold p-2.5 rounded-3">
+                                    <i class="bi bi-file-earmark-text-fill text-warning"></i> Ver Contrato Digital
+                                </a>
+                                <a id="btnDescargarPropiedad" href="#" target="_blank" class="btn btn-light fw-bold p-2.5 rounded-3 border">
+                                    <i class="bi bi-file-earmark-image-fill text-success"></i> Ver Título de Propiedad
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Plan de Amortización / Cuotas -->
+                <div class="card border-0 shadow-sm p-4 mt-4 rounded-4" style="background: #ffffff;">
+                    <div class="d-flex justify-content-between align-items-center mb-4 pb-2 border-bottom">
+                        <h5 class="text-navy fw-bold mb-0">
+                            <i class="bi bi-calendar3 text-success"></i> Plan de Amortización Mensual
+                        </h5>
+                        <button class="btn btn-success fw-bold px-4" id="btnAbonarCuota">
+                            <i class="bi bi-cash-stack"></i> Registrar Abono de Cuota
+                        </button>
+                    </div>
+
+                    <div class="table-responsive">
+                        <table class="table table-hover align-middle">
+                            <thead class="bg-light">
+                                <tr>
+                                    <th scope="col" style="color: var(--color-navy); font-weight: 600;">Cuota</th>
+                                    <th scope="col" style="color: var(--color-navy); font-weight: 600;">Monto de Cuota</th>
+                                    <th scope="col" style="color: var(--color-navy); font-weight: 600;">Fecha de Vencimiento</th>
+                                    <th scope="col" style="color: var(--color-navy); font-weight: 600;">Estado de Pago</th>
+                                    <th scope="col" class="text-center" style="color: var(--color-navy); font-weight: 600;">Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody id="cuotasTableBody">
+                                <!-- Cargado dinámicamente -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Registrar Abono -->
+    <div class="modal fade" id="abonoModal" tabindex="-1" aria-labelledby="abonoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-navy text-white p-3 px-4">
+                    <h5 class="modal-title" id="abonoModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-cash-coin"></i> Registrar Abono de Cuota
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="abonoAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="abonoAlertText"></span>
+                    </div>
+                    <form id="abonoForm">
+                        <input type="hidden" id="abonoCuotaId">
+                        <div class="mb-3">
+                            <label class="form-label text-navy fw-semibold">Número de Cuota</label>
+                            <input type="text" class="form-control bg-light" id="abonoCuotaNum" readonly>
+                        </div>
+                        <div class="mb-3">
+                            <label for="abonoMonto" class="form-label text-navy fw-semibold">Monto a Pagar (COP) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control fw-bold text-success fs-5" id="abonoMonto" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="abonoConcepto" class="form-label text-navy fw-semibold">Concepto de Pago <span class="text-danger">*</span></label>
+                            <select class="form-select" id="abonoConcepto" required>
+                                <option value="CUOTA_ORDINARIA" selected>Cuota ordinaria</option>
+                                <option value="ABONO_EXTRAORDINARIO">Abono extraordinario</option>
+                                <option value="INTERESES_MORA">Intereses por mora</option>
+                                <option value="PENALIDAD">Penalidad</option>
+                            </select>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success p-2.5 rounded-3 fw-semibold" id="btnConfirmarAbono">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="abonoSpinner" role="status" aria-hidden="true"></span>
+                                Confirmar Pago
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 Bundle JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const user = JSON.parse(sessionStorage.getItem("user"));
+            if (user) {
+                document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (${user.rol})`;
+                if (user.rol === "ADMINISTRADOR") {
+                    document.getElementById("menuDashboard").style.display = "block";
+                    document.getElementById("menuEgresos").style.display = "block";
+                } else if (user.rol === "CONTADOR") {
+                    document.getElementById("menuEgresos").style.display = "block";
+                }
+            }
+
+            document.getElementById("logoutBtn").addEventListener("click", () => {
+                sessionStorage.clear();
+                window.location.href = "index.html";
+            });
+
+            // Formatear precio en Pesos Colombianos (COP)
+            function formatCOP(val) {
+                return new Intl.NumberFormat('es-CO', {
+                    style: 'currency',
+                    currency: 'COP',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(val);
+            }
+
+            // Elementos de la UI
+            const statusAlert = document.getElementById("statusAlert");
+            const carteraDataContainer = document.getElementById("carteraDataContainer");
+            const cedulaSearch = document.getElementById("cedulaSearch");
+            const btnBuscarEstado = document.getElementById("btnBuscarEstado");
+
+            // Buscar si viene cédula por URL query param (?cedula=123)
+            const urlParams = new URLSearchParams(window.location.search);
+            const queryCedula = urlParams.get("cedula");
+            if (queryCedula) {
+                cedulaSearch.value = queryCedula;
+                cargarEstadoCuenta(queryCedula);
+            }
+
+            btnBuscarEstado.addEventListener("click", () => {
+                const ced = cedulaSearch.value.trim();
+                if (ced) {
+                    cargarEstadoCuenta(ced);
+                } else {
+                    alert("Ingrese un número de cédula");
+                }
+            });
+
+            async function cargarEstadoCuenta(cedula) {
+                statusAlert.className = "alert alert-light text-center py-4 border rounded-4";
+                statusAlert.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> Consultando deudas en Supabase...`;
+                statusAlert.classList.remove("d-none");
+                carteraDataContainer.classList.add("d-none");
+
+                try {
+                    const response = await fetch(`/api/clientes/${cedula}/estado-cuenta`);
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        statusAlert.classList.add("d-none");
+                        carteraDataContainer.classList.remove("d-none");
+
+                        // Cargar datos del cliente
+                        document.getElementById("clientNombre").textContent = data.comprador.nombre;
+                        document.getElementById("clientCedula").textContent = data.comprador.cedula;
+                        document.getElementById("clientTelefono").textContent = data.comprador.telefono || "No especificado";
+                        document.getElementById("clientCorreo").textContent = data.comprador.correo || "No especificado";
+                        document.getElementById("clientDireccion").textContent = data.comprador.direccion || "No especificada";
+
+                        if (data.contratos && data.contratos.length > 0) {
+                            // Renderizar la mini-vista selectora de lotes
+                            const loteSelectorSection = document.getElementById("loteSelectorSection");
+                            const loteCardsRow = document.getElementById("loteCardsRow");
+                            loteSelectorSection.classList.remove("d-none");
+                            loteCardsRow.innerHTML = "";
+
+                            data.contratos.forEach((contrato, idx) => {
+                                const col = document.createElement("div");
+                                col.className = "col-md-4 col-sm-6";
+                                col.innerHTML = `
+                                    <div class="card h-100 cursor-pointer lote-selector-card p-3 shadow-sm ${idx === 0 ? 'active' : ''}" data-idx="${idx}">
+                                        <div class="d-flex align-items-center justify-content-between mb-2">
+                                            <span class="fw-bold text-navy"><i class="bi bi-pin-map-fill text-success"></i> Lote ${contrato.lote.numeroLote}</span>
+                                            <span class="badge bg-navy text-white text-uppercase" style="font-size: 0.7rem;">${contrato.lote.etapa.nombreEtapa}</span>
+                                        </div>
+                                        <div class="small text-muted mb-1">
+                                            Área: <strong>${contrato.lote.areaM2} m²</strong>
+                                        </div>
+                                        <div class="small text-muted">
+                                            Precio: <strong class="text-success">${formatCOP(contrato.precioVentaPactado)}</strong>
+                                        </div>
+                                    </div>
+                                `;
+                                loteCardsRow.appendChild(col);
+
+                                col.querySelector(".lote-selector-card").addEventListener("click", (e) => {
+                                    document.querySelectorAll(".lote-selector-card").forEach(c => c.classList.remove("active"));
+                                    const card = e.currentTarget;
+                                    card.classList.add("active");
+                                    const selectedIdx = parseInt(card.getAttribute("data-idx"));
+                                    mostrarDetalleContrato(data.contratos[selectedIdx]);
+                                });
+                            });
+
+                            // Función para renderizar el detalle del contrato seleccionado
+                            function mostrarDetalleContrato(contrato) {
+                                document.getElementById("contratoLote").textContent = `Lote ${contrato.lote.numeroLote}`;
+                                document.getElementById("contratoArea").textContent = `${contrato.lote.areaM2} m²`;
+                                document.getElementById("contratoPrecio").textContent = formatCOP(contrato.precioVentaPactado);
+                                document.getElementById("contratoSeparacion").textContent = formatCOP(contrato.cuotaSeparacion);
+                                document.getElementById("contratoPlazo").textContent = `${contrato.plazoMeses} meses`;
+                                document.getElementById("contratoFecha").textContent = contrato.fechaVenta;
+
+                                // Configurar botones de descarga
+                                const cBtn = document.getElementById("btnDescargarContrato");
+                                if (contrato.urlPdfContrato) {
+                                    cBtn.href = contrato.urlPdfContrato;
+                                    cBtn.classList.remove("disabled");
+                                } else {
+                                    cBtn.removeAttribute("href");
+                                    cBtn.classList.add("disabled");
+                                }
+
+                                const pBtn = document.getElementById("btnDescargarPropiedad");
+                                if (contrato.urlPdfPropiedad) {
+                                    pBtn.href = contrato.urlPdfPropiedad;
+                                    pBtn.classList.remove("disabled");
+                                } else {
+                                    pBtn.removeAttribute("href");
+                                    pBtn.classList.add("disabled");
+                                }
+
+                                // Rellenar tabla de cuotas
+                                const tbody = document.getElementById("cuotasTableBody");
+                                tbody.innerHTML = "";
+
+                                contrato.cuotas.forEach((cuota) => {
+                                    const tr = document.createElement("tr");
+
+                                    let badgeClass = "badge-pendiente";
+                                    let textClass = "PENDIENTE";
+                                    if (cuota.estadoPago === "PAGADA") {
+                                        badgeClass = "badge-pagada";
+                                        textClass = "PAGADA";
+                                    } else if (cuota.estadoPago === "VENCIDA") {
+                                        badgeClass = "badge-vencida";
+                                        textClass = "VENCIDA";
+                                    }
+
+                                    tr.innerHTML = `
+                                        <td class="fw-bold text-navy">Cuota ${cuota.numeroCuota}</td>
+                                        <td class="fw-semibold">${formatCOP(cuota.montoCuota)}</td>
+                                        <td>${cuota.fechaVencimiento}</td>
+                                        <td><span class="badge px-3 py-2 fs-6 rounded-pill ${badgeClass}">${textClass}</span></td>
+                                        <td class="text-center">
+                                            <button class="btn btn-sm btn-outline-navy fw-semibold btn-pago-cuota" ${cuota.estadoPago === 'PAGADA' ? 'disabled' : ''}>
+                                                <i class="bi bi-cash-coin"></i> Abonar
+                                            </button>
+                                        </td>
+                                    `;
+                                    
+                                    tr.querySelector(".btn-pago-cuota").addEventListener("click", () => {
+                                        abrirModalAbono(cuota.id, cuota.numeroCuota, cuota.montoCuota);
+                                    });
+
+                                    tbody.appendChild(tr);
+                                });
+                            }
+
+                            // Mostrar el primer contrato por defecto
+                            mostrarDetalleContrato(data.contratos[0]);
+
+                        } else {
+                            // Ocultar sección selectora
+                            document.getElementById("loteSelectorSection").classList.add("d-none");
+                            // Sin contratos activos
+                            statusAlert.className = "alert alert-warning border-warning bg-warning bg-opacity-10 text-dark p-4 rounded-4 text-center";
+                            statusAlert.innerHTML = `
+                                <i class="bi bi-exclamation-triangle-fill fs-1 text-warning"></i>
+                                <h5 class="mt-3" style="font-weight: 600;">Sin Contrato Activo</h5>
+                                <p class="mb-0 text-muted">Este comprador está registrado pero no posee lotes asociados.</p>
+                            `;
+                            statusAlert.classList.remove("d-none");
+                            carteraDataContainer.classList.add("d-none");
+                        }
+
+                    } else {
+                        statusAlert.className = "alert alert-danger border-danger bg-danger bg-opacity-10 text-danger p-4 rounded-4 text-center";
+                        statusAlert.innerHTML = `
+                            <i class="bi bi-x-circle-fill fs-1"></i>
+                            <h5 class="mt-3" style="font-weight: 600;">Búsqueda Fallida</h5>
+                            <p class="mb-0">${data.error || "No se pudo realizar la consulta."}</p>
+                        `;
+                        statusAlert.classList.remove("d-none");
+                        carteraDataContainer.classList.add("d-none");
+                    }
+
+                } catch (e) {
+                    console.error(e);
+                    statusAlert.className = "alert alert-danger border-danger bg-danger bg-opacity-10 text-danger p-4 rounded-4 text-center";
+                    statusAlert.innerHTML = `
+                        <i class="bi bi-wifi-off fs-1"></i>
+                        <h5 class="mt-3" style="font-weight: 600;">Error de Conexión</h5>
+                        <p class="mb-0">Verifique el estado del servidor de backend de LoteClick.</p>
+                    `;
+                    statusAlert.classList.remove("d-none");
+                }
+            }
+
+            // Instancia del modal de abono
+            const abonoModalObj = new bootstrap.Modal(document.getElementById('abonoModal'));
+
+            function abrirModalAbono(cuotaId, numeroCuota, montoCuota) {
+                document.getElementById("abonoCuotaId").value = cuotaId;
+                document.getElementById("abonoCuotaNum").value = "Cuota " + numeroCuota;
+                document.getElementById("abonoMonto").value = montoCuota;
+                document.getElementById("abonoMonto").min = 1;
+                
+                // Limpiar alertas y spinner
+                document.getElementById("abonoAlert").classList.add("d-none");
+                document.getElementById("abonoSpinner").classList.add("d-none");
+                document.getElementById("btnConfirmarAbono").disabled = false;
+                
+                abonoModalObj.show();
+            }
+
+            const abonoForm = document.getElementById("abonoForm");
+            abonoForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                
+                const cuotaId = document.getElementById("abonoCuotaId").value;
+                const monto = document.getElementById("abonoMonto").value;
+                const concepto = document.getElementById("abonoConcepto").value;
+                const user = JSON.parse(sessionStorage.getItem("user"));
+                
+                if (!user || !user.correo) {
+                    alert("Sesión no válida. Vuelva a iniciar sesión.");
+                    window.location.href = "index.html";
+                    return;
+                }
+                
+                const spinner = document.getElementById("abonoSpinner");
+                const confirmBtn = document.getElementById("btnConfirmarAbono");
+                const alertDiv = document.getElementById("abonoAlert");
+                const alertText = document.getElementById("abonoAlertText");
+                
+                spinner.classList.remove("d-none");
+                confirmBtn.disabled = true;
+                alertDiv.classList.add("d-none");
+                
+                try {
+                    const response = await fetch("/api/pagos", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json"
+                        },
+                        body: JSON.stringify({
+                            cuotaId: cuotaId,
+                            usuarioCorreo: user.correo,
+                            montoPagado: parseFloat(monto),
+                            concepto: concepto
+                        })
+                    });
+                    
+                    const resData = await response.json();
+                    
+                    if (response.ok) {
+                        abonoModalObj.hide();
+                        abonoForm.reset();
+                        alert("¡Pago registrado exitosamente!");
+                        
+                        // Abrir recibo en nueva pestaña
+                        if (resData.urlPdfRecibo) {
+                            window.open(resData.urlPdfRecibo, '_blank');
+                        }
+                        
+                        // Recargar estado de cuenta
+                        const cedula = document.getElementById("clientCedula").textContent;
+                        if (cedula && cedula !== "-") {
+                            cargarEstadoCuenta(cedula);
+                        }
+                    } else {
+                        alertText.textContent = resData.error || "Error al procesar el pago.";
+                        alertDiv.classList.remove("d-none");
+                        confirmBtn.disabled = false;
+                        spinner.classList.add("d-none");
+                    }
+                } catch (err) {
+                    console.error(err);
+                    alertText.textContent = "Error de red al conectar con el servidor.";
+                    alertDiv.classList.remove("d-none");
+                    confirmBtn.disabled = false;
+                    spinner.classList.add("d-none");
+                }
+            });
+
+            document.getElementById("btnAbonarCuota").addEventListener("click", () => {
+                const firstAbonarBtn = document.querySelector(".btn-pago-cuota:not([disabled])");
+                if (firstAbonarBtn) {
+                    firstAbonarBtn.click();
+                } else {
+                    alert("Todas las cuotas de esta propiedad ya están PAGADAS.");
+                }
+            });
+
+            const resetBtn = document.getElementById("resetDbBtn");
+            if (resetBtn) {
+                resetBtn.addEventListener("click", async () => {
+                    if (confirm("¿Está seguro de que desea restablecer la base de datos al estado inicial? Se borrarán todos los pagos, egresos y contratos registrados durante la prueba.")) {
+                        resetBtn.disabled = true;
+                        resetBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Restableciendo...`;
+                        try {
+                            const response = await fetch("/api/test/reset", {
+                                method: "POST"
+                            });
+                            if (response.ok) {
+                                alert("Base de datos restablecida exitosamente.");
+                                window.location.reload();
+                            } else {
+                                const data = await response.json();
+                                alert("Error al restablecer base de datos: " + (data.error || "Error desconocido"));
+                                resetBtn.disabled = false;
+                                resetBtn.innerHTML = `<i class="bi bi-arrow-clockwise"></i> Restablecer BD`;
+                            }
+                        } catch (err) {
+                            console.error(err);
+                            alert("Error de conexión al restablecer base de datos.");
+                            resetBtn.disabled = false;
+                            resetBtn.innerHTML = `<i class="bi bi-arrow-clockwise"></i> Restablecer BD`;
+                        }
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

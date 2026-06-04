@@ -1,0 +1,423 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoteClick - Iniciar Sesión</title>
+    <!-- Google Fonts: Inter & Outfit para tipografía moderna -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Animate.css para animaciones premium de entrada -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    <style>
+        :root {
+            --color-navy: #0B2545;
+            --color-blue: #134074;
+            --color-dark: #051329;
+            --color-gray-bg: #EEF4F8;
+            --color-danger: #E63946;
+            --color-success: #2A9D8F;
+            --color-accent: #E9C46A;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-dark);
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            display: flex;
+            overflow: hidden;
+        }
+
+        /* Contenedor Split Screen */
+        .split-container {
+            display: flex;
+            width: 100%;
+            height: 100vh;
+        }
+
+        /* Panel Izquierdo: Showcase de la Parcelación */
+        .showcase-panel {
+            flex: 1.25;
+            background-image: linear-gradient(135deg, rgba(11, 37, 69, 0.5) 0%, rgba(5, 19, 41, 0.95) 100%), url('images/login-bg.jpg');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 4rem;
+            color: #ffffff;
+            position: relative;
+            box-shadow: 10px 0 30px rgba(0, 0, 0, 0.25);
+            z-index: 5;
+        }
+
+        .showcase-header {
+            z-index: 10;
+        }
+
+        .showcase-brand {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 800;
+            font-size: 2.2rem;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            letter-spacing: -0.5px;
+        }
+
+        .showcase-brand i {
+            color: var(--color-success);
+        }
+
+        .showcase-body {
+            z-index: 10;
+            max-width: 600px;
+            margin-top: auto;
+            margin-bottom: auto;
+        }
+
+        .showcase-title {
+            font-family: 'Outfit', sans-serif;
+            font-size: 3.5rem;
+            font-weight: 800;
+            line-height: 1.15;
+            margin-bottom: 1.5rem;
+            background: linear-gradient(135deg, #ffffff 60%, var(--color-accent) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .showcase-description {
+            font-size: 1.15rem;
+            color: rgba(255, 255, 255, 0.85);
+            line-height: 1.6;
+            margin-bottom: 2.5rem;
+        }
+
+        .features-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+        }
+
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 1.25rem;
+            font-size: 1.05rem;
+            font-weight: 500;
+            color: rgba(255, 255, 255, 0.9);
+        }
+
+        .feature-icon-wrapper {
+            width: 42px;
+            height: 42px;
+            background: rgba(255, 255, 255, 0.08);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            color: var(--color-accent);
+            font-size: 1.2rem;
+        }
+
+        .showcase-footer {
+            z-index: 10;
+            margin-top: auto;
+            color: rgba(255, 255, 255, 0.5);
+            font-size: 0.9rem;
+        }
+
+        /* Panel Derecho: Formulario de Login */
+        .login-panel {
+            flex: 0.75;
+            background: linear-gradient(135deg, var(--color-navy) 0%, #06182e 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4rem;
+            position: relative;
+            box-shadow: -10px 0 30px rgba(0, 0, 0, 0.2);
+        }
+
+        /* Elementos decorativos de fondo en el Panel de Login */
+        .bg-glow {
+            position: absolute;
+            width: 350px;
+            height: 350px;
+            background: radial-gradient(circle, rgba(42, 157, 143, 0.1) 0%, rgba(0,0,0,0) 70%);
+            top: 20%;
+            right: 10%;
+            z-index: 0;
+        }
+
+        .login-box {
+            width: 100%;
+            max-width: 420px;
+            z-index: 10;
+        }
+
+        .login-card-premium {
+            background: transparent;
+            backdrop-filter: none;
+            -webkit-backdrop-filter: none;
+            border: none;
+            border-radius: 0;
+            padding: 0;
+            box-shadow: none;
+            color: #ffffff;
+        }
+
+        .login-header-mobile {
+            display: none;
+        }
+
+        .login-welcome {
+            font-family: 'Outfit', sans-serif;
+            font-weight: 700;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
+            letter-spacing: -0.5px;
+        }
+
+        .login-instructions {
+            color: rgba(255, 255, 255, 0.55);
+            font-size: 0.95rem;
+            margin-bottom: 2.5rem;
+        }
+
+        /* Campos de entrada con icono */
+        .input-group-custom {
+            position: relative;
+            margin-bottom: 1.5rem;
+        }
+
+        .input-group-custom i {
+            position: absolute;
+            left: 18px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 1.15rem;
+            transition: color 0.2s ease;
+            z-index: 10;
+        }
+
+        .input-group-custom .form-control {
+            padding-left: 52px;
+            height: 56px;
+            border-radius: 14px;
+            border: 1.5px solid rgba(255, 255, 255, 0.08);
+            font-size: 0.98rem;
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.03);
+            transition: all 0.2s ease-in-out;
+        }
+
+        .input-group-custom .form-control::placeholder {
+            color: rgba(255, 255, 255, 0.35);
+        }
+
+        .input-group-custom .form-control:focus {
+            background-color: rgba(255, 255, 255, 0.06);
+            border-color: var(--color-success);
+            box-shadow: 0 0 0 4px rgba(42, 157, 143, 0.15);
+            color: #ffffff;
+            outline: none;
+        }
+
+        .input-group-custom .form-control:focus + i {
+            color: var(--color-success);
+        }
+
+        /* Botón de inicio de sesión premium */
+        .btn-login {
+            background-color: var(--color-success);
+            color: #ffffff;
+            height: 56px;
+            border-radius: 14px;
+            font-weight: 700;
+            font-size: 1.05rem;
+            border: none;
+            width: 100%;
+            transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+            box-shadow: 0 4px 15px rgba(42, 157, 143, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            margin-top: 1rem;
+        }
+
+        .btn-login:hover {
+            background-color: #218478;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(42, 157, 143, 0.45);
+            color: #ffffff;
+        }
+
+        .btn-login:active {
+            transform: translateY(0);
+        }
+
+        /* Estilo de la alerta de error */
+        .alert-error {
+            background-color: rgba(230, 57, 70, 0.08);
+            border: 1px solid rgba(230, 57, 70, 0.2);
+            color: #ff858d;
+            border-radius: 14px;
+            padding: 0.9rem 1.25rem;
+            font-size: 0.9rem;
+            margin-bottom: 1.75rem;
+            display: none;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 992px) {
+            .showcase-panel {
+                display: none; /* Ocultar showcase en tablets y móviles */
+            }
+            .login-panel {
+                flex: 1;
+                padding: 2rem;
+            }
+            .login-header-mobile {
+                display: block;
+                text-align: center;
+                margin-bottom: 2rem;
+            }
+            .mobile-brand {
+                font-family: 'Outfit', sans-serif;
+                font-weight: 800;
+                font-size: 2.2rem;
+                color: #ffffff;
+                margin-bottom: 0.25rem;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 10px;
+            }
+            .mobile-brand i {
+                color: var(--color-success);
+            }
+            .mobile-subtitle {
+                color: var(--color-accent);
+                font-size: 0.85rem;
+                font-weight: 600;
+                text-transform: uppercase;
+                letter-spacing: 2px;
+            }
+            .login-card-premium {
+                padding: 2.5rem 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="split-container">
+        <!-- Panel Izquierdo: Showcase de la parcelación (Solo desktop) -->
+        <div class="showcase-panel">
+            <div class="showcase-header">
+                <div class="showcase-brand">
+                    <i class="bi bi-geo-fill"></i>
+                    <span>LoteClick</span>
+                </div>
+            </div>
+            
+            <div class="showcase-body">
+                <h1 class="showcase-title">Mirador de<br>San Antonio</h1>
+                <p class="showcase-description">
+                    Sistema integral para el control de parcelaciones, inventario inmobiliario y seguimiento de cartera en tiempo real. Formalice ventas de lotes y administre amortizaciones de forma eficiente.
+                </p>
+                
+                <ul class="features-list">
+                    <li class="feature-item">
+                        <div class="feature-icon-wrapper">
+                            <i class="bi bi-map"></i>
+                        </div>
+                        <span>Control de lotes y etapas del proyecto inmobiliario</span>
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon-wrapper">
+                            <i class="bi bi-file-earmark-pdf"></i>
+                        </div>
+                        <span>Generación automática de contratos y estados de cuenta</span>
+                    </li>
+                    <li class="feature-item">
+                        <div class="feature-icon-wrapper">
+                            <i class="bi bi-wallet2"></i>
+                        </div>
+                        <span>Seguimiento de egresos operativos y balances de utilidad</span>
+                    </li>
+                </ul>
+            </div>
+            
+            <div class="showcase-footer">
+                <span>&copy; 2026 ALMAROS. Todos los derechos reservados.</span>
+            </div>
+        </div>
+
+        <!-- Panel Derecho: Formulario de Login -->
+        <div class="login-panel">
+            <div class="bg-glow"></div>
+            
+            <div class="login-box">
+                <!-- Marca para móviles (oculta en desktop) -->
+                <div class="login-header-mobile">
+                    <div class="mobile-brand">
+                        <i class="bi bi-geo-fill"></i>
+                        <span>LoteClick</span>
+                    </div>
+                    <span class="mobile-subtitle">Mirador de San Antonio</span>
+                </div>
+
+                <!-- Tarjeta Premium del Formulario -->
+                <div class="login-card-premium animate__animated animate__fadeInUp" id="loginCard">
+                    <h2 class="login-welcome">Iniciar Sesión</h2>
+                    <p class="login-instructions">Ingrese sus credenciales de empleado para acceder al sistema.</p>
+
+                    <!-- Alerta de Error -->
+                    <div class="alert-error" id="errorAlert">
+                        <i class="bi bi-exclamation-triangle-fill"></i>
+                        <span id="errorMessage">Credenciales incorrectas. Intente nuevamente</span>
+                    </div>
+
+                    <!-- Formulario -->
+                    <form id="loginForm">
+                        <!-- Correo -->
+                        <div class="input-group-custom">
+                            <i class="bi bi-envelope-fill"></i>
+                            <input type="email" class="form-control" id="email" placeholder="Correo Corporativo" required autocomplete="email">
+                        </div>
+
+                        <!-- Contraseña -->
+                        <div class="input-group-custom">
+                            <i class="bi bi-lock-fill"></i>
+                            <input type="password" class="form-control" id="password" placeholder="Contraseña" required autocomplete="current-password">
+                        </div>
+
+                        <!-- Botón de Ingreso -->
+                        <button type="submit" class="btn btn-login" id="submitBtn">
+                            <span class="spinner-border spinner-border-sm me-2 d-none" id="btnSpinner" role="status" aria-hidden="true"></span>
+                            <span id="btnText">Iniciar Sesión</span>
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bootstrap 5 JS Bundle via CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Script de autenticación asíncrona -->
+    <script src="js/auth.js"></script>
+</body>
+</html>

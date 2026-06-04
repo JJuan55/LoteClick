@@ -1,0 +1,22 @@
+============================================================
+         CONTRATO DE ADJUDICACION Y COMPRAVENTA DE LOTE      
+             PROYECTO INMOBILIARIO MIRADOR DE SAN ANTONIO    
+============================================================
+
+PROYECTO: Mirador de San Antonio - ALMAROS S.A.S
+UBICACION: Lote 3 - Etapa 1
+
+DATOS DEL COMPRADOR:
+  Nombre: Juan Valdez
+  Cedula: 111222
+
+ACUERDOS COMERCIALES:
+  Precio de Venta Pactado: $ 102500000 COP
+  Cuota de Separacion (Abono Inicial): $ 10250000 COP
+  Saldo Restante por Financiar: $ 9.225E7 COP
+  Plazo Otorgado: 2 meses
+
+------------------------------------------------------------
+Este documento certifica de forma perpetua y legal la compra 
+y separacion del lote citado bajo las cuotas proyectadas.    
+============================================================
