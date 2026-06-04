@@ -10,7 +10,10 @@ import java.io.IOException;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -26,6 +29,15 @@ public class FinanzasService {
 
     @Autowired
     private EgresoRepository egresoRepository;
+
+    @Autowired
+    private AporteInversionistaRepository aporteInversionistaRepository;
+
+    @Autowired
+    private SocioProyectoRepository socioProyectoRepository;
+
+    @Autowired
+    private DistribucionSocioRepository distribucionSocioRepository;
 
     @Autowired
     private CuotaAmortizacionRepository cuotaAmortizacionRepository;
@@ -63,8 +75,9 @@ public class FinanzasService {
         }
 
         // 2. Obtener el usuario (vendedor/administrador)
-        Usuario usuario = usuarioRepository.findByCorreo(usuarioCorreo.trim().toLowerCase())
-                .orElseThrow(() -> new IllegalArgumentException("Usuario interno no encontrado."));
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(usuarioCorreo);
+        validarRol(usuario, List.of("VENDEDOR", "CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para registrar pagos de cartera.");
 
         // 3. Mutar el estado de la cuota a PAGADA
         cuota.setEstadoPago("PAGADA");
@@ -110,8 +123,9 @@ public class FinanzasService {
         }
 
         // 2. Buscar al contador/administrador
-        Usuario contador = usuarioRepository.findByCorreo(contadorCorreo.trim().toLowerCase())
-                .orElseThrow(() -> new IllegalArgumentException("Usuario contable no encontrado."));
+        Usuario contador = obtenerUsuarioActivoPorCorreo(contadorCorreo);
+        validarRol(contador, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para registrar egresos.");
 
         // 3. Crear el egreso
         Egreso egreso = new Egreso();
@@ -128,11 +142,403 @@ public class FinanzasService {
     /**
      * Obtiene el listado cronológico de egresos. Filtra por fechas de forma opcional.
      */
-    public List<Egreso> obtenerEgresosLiquidar(LocalDate fechaInicio, LocalDate fechaFin) {
+    public List<Egreso> obtenerEgresosLiquidar(String correoUsuario, LocalDate fechaInicio, LocalDate fechaFin) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para consultar egresos.");
+
         if (fechaInicio != null && fechaFin != null) {
             return egresoRepository.findByFechaEgresoBetweenOrderByFechaEgresoAsc(fechaInicio, fechaFin);
         }
         return egresoRepository.findAllByOrderByFechaEgresoDesc();
+    }
+
+    public List<Map<String, Object>> obtenerLiquidacionCaja(String correoUsuario, LocalDate fechaInicio, LocalDate fechaFin,
+                                                            String tipoSalida, String rubro) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para consultar la liquidacion de caja.");
+
+        String tipoNormalizado = normalizarFiltro(tipoSalida);
+        String rubroNormalizado = normalizarFiltro(rubro);
+        List<Map<String, Object>> movimientos = new ArrayList<>();
+
+        for (Egreso egreso : obtenerEgresosLiquidar(correoUsuario, fechaInicio, fechaFin)) {
+            if (tipoNormalizado != null && !"OPERATIVO".equals(tipoNormalizado)) {
+                continue;
+            }
+            if (rubroNormalizado != null && !rubroNormalizado.equalsIgnoreCase(egreso.getRubro())) {
+                continue;
+            }
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", egreso.getId());
+            item.put("fecha", egreso.getFechaEgreso().toString());
+            item.put("tipoSalida", "OPERATIVO");
+            item.put("rubro", egreso.getRubro());
+            item.put("descripcion", egreso.getDescripcion() != null ? egreso.getDescripcion() : "");
+            item.put("monto", egreso.getMonto());
+            item.put("registradoPor", egreso.getContador().getNombreCompleto());
+            item.put("beneficiario", "Operacion");
+            item.put("referencia", "");
+            movimientos.add(item);
+        }
+
+        List<DistribucionSocio> distribuciones = (fechaInicio != null && fechaFin != null)
+                ? distribucionSocioRepository.findByFechaDistribucionBetweenOrderByFechaDistribucionDesc(fechaInicio, fechaFin)
+                : distribucionSocioRepository.findAllByOrderByFechaDistribucionDesc();
+
+        for (DistribucionSocio distribucion : distribuciones) {
+            if (tipoNormalizado != null && !"DISTRIBUCION_SOCIOS".equals(tipoNormalizado)) {
+                continue;
+            }
+            if (rubroNormalizado != null && !"DISTRIBUCION_SOCIOS".equals(rubroNormalizado)) {
+                continue;
+            }
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", distribucion.getId());
+            item.put("fecha", distribucion.getFechaDistribucion().toString());
+            item.put("tipoSalida", "DISTRIBUCION_SOCIOS");
+            item.put("rubro", "DISTRIBUCION_SOCIOS");
+            item.put("descripcion", distribucion.getDescripcion() != null ? distribucion.getDescripcion() : "Reparto a socio");
+            item.put("monto", distribucion.getMonto());
+            item.put("registradoPor", distribucion.getRegistradoPor().getNombreCompleto());
+            item.put("beneficiario", distribucion.getSocio().getNombre());
+            item.put("referencia", distribucion.getReferencia() != null ? distribucion.getReferencia() : "");
+            movimientos.add(item);
+        }
+
+        movimientos.sort((a, b) -> ((String) b.get("fecha")).compareTo((String) a.get("fecha")));
+        return movimientos;
+    }
+
+    /**
+     * Calcula los indicadores financieros principales del dashboard.
+     * Se considera la cuota de separación como dinero ya recaudado porque el flujo
+     * actual la persiste dentro del contrato, no como un PagoIngreso independiente.
+     */
+    public Map<String, Object> obtenerResumenFinanciero(String correoUsuario) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para consultar el dashboard financiero.");
+
+        List<VentaContrato> ventas = ventaContratoRepository.findAll();
+        List<PagoIngreso> pagos = pagoIngresoRepository.findAll();
+        List<Egreso> egresos = egresoRepository.findAll();
+        List<DistribucionSocio> distribuciones = distribucionSocioRepository.findAll();
+
+        BigDecimal ventasEfectivas = ventas.stream()
+                .map(VentaContrato::getPrecioVentaPactado)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalSeparaciones = ventas.stream()
+                .map(VentaContrato::getCuotaSeparacion)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalPagos = pagos.stream()
+                .map(PagoIngreso::getMontoPagado)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalEgresosOperativos = egresos.stream()
+                .map(Egreso::getMonto)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalDistribuciones = distribuciones.stream()
+                .map(DistribucionSocio::getMonto)
+                .filter(java.util.Objects::nonNull)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalRecaudado = totalSeparaciones.add(totalPagos);
+        BigDecimal totalSalidasCaja = totalEgresosOperativos.add(totalDistribuciones);
+        BigDecimal pendienteRecaudo = ventasEfectivas.subtract(totalRecaudado).max(BigDecimal.ZERO);
+        BigDecimal utilidadNeta = totalRecaudado.subtract(totalSalidasCaja);
+        BigDecimal saldoCaja = obtenerResumenIngresos(correoUsuario, null, null).get("totalIngresos") instanceof BigDecimal totalIngresos
+                ? totalIngresos.subtract(totalSalidasCaja)
+                : BigDecimal.ZERO;
+
+        Map<String, Object> resumen = new HashMap<>();
+        resumen.put("ventasEfectivas", ventasEfectivas);
+        resumen.put("totalRecaudado", totalRecaudado);
+        resumen.put("pendienteRecaudo", pendienteRecaudo);
+        resumen.put("utilidadNeta", utilidadNeta);
+        resumen.put("totalEgresos", totalEgresosOperativos);
+        resumen.put("totalDistribucionesSocios", totalDistribuciones);
+        resumen.put("totalSalidasCaja", totalSalidasCaja);
+        resumen.put("saldoCaja", saldoCaja);
+        resumen.put("cantidadVentas", ventas.size());
+        resumen.put("cantidadPagos", pagos.size());
+        resumen.put("cantidadEgresos", egresos.size());
+        resumen.put("cantidadDistribucionesSocios", distribuciones.size());
+        return resumen;
+    }
+
+    /**
+     * Calcula la liquidación contable de egresos consolidada por rubro.
+     */
+    public Map<String, Object> obtenerResumenEgresos(String correoUsuario, LocalDate fechaInicio, LocalDate fechaFin,
+                                                     String tipoSalida, String rubro) {
+        List<Map<String, Object>> egresos = obtenerLiquidacionCaja(correoUsuario, fechaInicio, fechaFin, tipoSalida, rubro);
+
+        BigDecimal totalEgresos = BigDecimal.ZERO;
+        Map<String, BigDecimal> acumuladoPorRubro = new HashMap<>();
+        Map<String, Integer> cantidadPorRubro = new HashMap<>();
+        BigDecimal totalDistribucionesSocios = BigDecimal.ZERO;
+
+        for (Map<String, Object> egreso : egresos) {
+            BigDecimal monto = egreso.get("monto") instanceof BigDecimal value ? value : BigDecimal.ZERO;
+            String rubroMovimiento = egreso.get("rubro") != null ? egreso.get("rubro").toString() : "SIN_RUBRO";
+            String tipoMovimiento = egreso.get("tipoSalida") != null ? egreso.get("tipoSalida").toString() : "";
+
+            totalEgresos = totalEgresos.add(monto);
+            acumuladoPorRubro.put(rubroMovimiento, acumuladoPorRubro.getOrDefault(rubroMovimiento, BigDecimal.ZERO).add(monto));
+            cantidadPorRubro.put(rubroMovimiento, cantidadPorRubro.getOrDefault(rubroMovimiento, 0) + 1);
+            if ("DISTRIBUCION_SOCIOS".equals(tipoMovimiento)) {
+                totalDistribucionesSocios = totalDistribucionesSocios.add(monto);
+            }
+        }
+
+        List<Map<String, Object>> rubros = acumuladoPorRubro.entrySet().stream()
+                .map(entry -> {
+                    Map<String, Object> map = new HashMap<>();
+                    map.put("rubro", entry.getKey());
+                    map.put("total", entry.getValue());
+                    map.put("cantidad", cantidadPorRubro.getOrDefault(entry.getKey(), 0));
+                    return map;
+                })
+                .sorted((a, b) -> ((BigDecimal) b.get("total")).compareTo((BigDecimal) a.get("total")))
+                .toList();
+
+        Map<String, Object> rubroMayor = rubros.isEmpty() ? null : rubros.get(0);
+
+        Map<String, Object> resumen = new HashMap<>();
+        resumen.put("totalEgresos", totalEgresos);
+        resumen.put("cantidadEgresos", egresos.size());
+        resumen.put("cantidadRubros", rubros.size());
+        resumen.put("rubroMayor", rubroMayor);
+        resumen.put("rubros", rubros);
+        resumen.put("totalDistribucionesSocios", totalDistribucionesSocios);
+        return resumen;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public AporteInversionista registrarAporteInversionista(String correoUsuario, String nombreInversionista,
+                                                            BigDecimal monto, LocalDate fechaAporte, String descripcion) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para registrar aportes de inversionistas.");
+
+        if (nombreInversionista == null || nombreInversionista.trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre del inversionista es obligatorio.");
+        }
+        if (monto == null || monto.compareTo(BigDecimal.ZERO) <= 0) {
+            throw new IllegalArgumentException("El monto del aporte debe ser superior a cero.");
+        }
+        if (fechaAporte == null) {
+            throw new IllegalArgumentException("La fecha del aporte es obligatoria.");
+        }
+
+        AporteInversionista aporte = new AporteInversionista();
+        aporte.setNombreInversionista(nombreInversionista.trim());
+        aporte.setMonto(monto);
+        aporte.setFechaAporte(fechaAporte);
+        aporte.setDescripcion(descripcion);
+        aporte.setRegistradoPor(usuario);
+        return aporteInversionistaRepository.save(aporte);
+    }
+
+    public List<Map<String, Object>> obtenerListadoIngresos(String correoUsuario, LocalDate fechaInicio, LocalDate fechaFin) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para consultar ingresos.");
+
+        List<Map<String, Object>> movimientos = new ArrayList<>();
+
+        for (VentaContrato venta : ventaContratoRepository.findAll()) {
+            if (estaEnRango(venta.getFechaVenta(), fechaInicio, fechaFin) && venta.getCuotaSeparacion() != null) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("fecha", venta.getFechaVenta().toString());
+                item.put("origen", "VENTA");
+                item.put("tipo", "CUOTA_SEPARACION");
+                item.put("referencia", "Lote " + venta.getLote().getNumeroLote());
+                item.put("detalle", "Cuota de separación - " + venta.getComprador().getNombre());
+                item.put("monto", venta.getCuotaSeparacion());
+                movimientos.add(item);
+            }
+        }
+
+        for (PagoIngreso pago : pagoIngresoRepository.findAll()) {
+            LocalDate fechaPago = pago.getFechaPago().toLocalDate();
+            if (estaEnRango(fechaPago, fechaInicio, fechaFin)) {
+                Map<String, Object> item = new HashMap<>();
+                item.put("fecha", fechaPago.toString());
+                item.put("origen", "VENTA");
+                item.put("tipo", pago.getConcepto());
+                item.put("referencia", "Lote " + pago.getVenta().getLote().getNumeroLote());
+                item.put("detalle", pago.getVenta().getComprador().getNombre());
+                item.put("monto", pago.getMontoPagado());
+                movimientos.add(item);
+            }
+        }
+
+        List<AporteInversionista> aportes = (fechaInicio != null && fechaFin != null)
+                ? aporteInversionistaRepository.findByFechaAporteBetweenOrderByFechaAporteDesc(fechaInicio, fechaFin)
+                : aporteInversionistaRepository.findAllByOrderByFechaAporteDesc();
+
+        for (AporteInversionista aporte : aportes) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("fecha", aporte.getFechaAporte().toString());
+            item.put("origen", "INVERSIONISTA");
+            item.put("tipo", "APORTE_CAPITAL");
+            item.put("referencia", aporte.getNombreInversionista());
+            item.put("detalle", aporte.getDescripcion() != null ? aporte.getDescripcion() : "Aporte de capital");
+            item.put("monto", aporte.getMonto());
+            movimientos.add(item);
+        }
+
+        movimientos.sort((a, b) -> ((String) b.get("fecha")).compareTo((String) a.get("fecha")));
+        return movimientos;
+    }
+
+    public Map<String, Object> obtenerResumenIngresos(String correoUsuario, LocalDate fechaInicio, LocalDate fechaFin) {
+        List<Map<String, Object>> ingresos = obtenerListadoIngresos(correoUsuario, fechaInicio, fechaFin);
+
+        BigDecimal totalIngresos = ingresos.stream()
+                .map(i -> (BigDecimal) i.get("monto"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalVentas = ingresos.stream()
+                .filter(i -> "VENTA".equals(i.get("origen")))
+                .map(i -> (BigDecimal) i.get("monto"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        BigDecimal totalInversionistas = ingresos.stream()
+                .filter(i -> "INVERSIONISTA".equals(i.get("origen")))
+                .map(i -> (BigDecimal) i.get("monto"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        List<Map<String, Object>> salidasCaja = obtenerLiquidacionCaja(correoUsuario, fechaInicio, fechaFin, null, null);
+        BigDecimal totalSalidasCaja = salidasCaja.stream()
+                .map(i -> (BigDecimal) i.get("monto"))
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        BigDecimal saldoCaja = totalIngresos.subtract(totalSalidasCaja);
+
+        Map<String, Object> resumen = new HashMap<>();
+        resumen.put("totalIngresos", totalIngresos);
+        resumen.put("totalVentas", totalVentas);
+        resumen.put("totalInversionistas", totalInversionistas);
+        resumen.put("cantidadIngresos", ingresos.size());
+        resumen.put("totalSalidasCaja", totalSalidasCaja);
+        resumen.put("saldoCaja", saldoCaja);
+        return resumen;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public SocioProyecto registrarSocioProyecto(String correoUsuario, String nombre, String telefono, String correo,
+                                                BigDecimal porcentajeParticipacion, String observaciones) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para registrar socios.");
+
+        if (nombre == null || nombre.trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre del socio es obligatorio.");
+        }
+        if (porcentajeParticipacion != null &&
+                (porcentajeParticipacion.compareTo(BigDecimal.ZERO) < 0 || porcentajeParticipacion.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            throw new IllegalArgumentException("El porcentaje de participacion debe estar entre 0 y 100.");
+        }
+
+        SocioProyecto socio = new SocioProyecto();
+        socio.setNombre(nombre.trim());
+        socio.setTelefono(telefono);
+        socio.setCorreo(correo != null ? correo.trim().toLowerCase() : null);
+        socio.setPorcentajeParticipacion(porcentajeParticipacion);
+        socio.setObservaciones(observaciones);
+        socio.setActivo(true);
+        return socioProyectoRepository.save(socio);
+    }
+
+    public List<Map<String, Object>> obtenerSociosProyecto(String correoUsuario) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para consultar socios.");
+
+        List<DistribucionSocio> distribuciones = distribucionSocioRepository.findAll();
+        Map<UUID, BigDecimal> totalPorSocio = new HashMap<>();
+        for (DistribucionSocio distribucion : distribuciones) {
+            UUID socioId = distribucion.getSocio().getId();
+            totalPorSocio.put(socioId, totalPorSocio.getOrDefault(socioId, BigDecimal.ZERO).add(distribucion.getMonto()));
+        }
+
+        List<Map<String, Object>> socios = new ArrayList<>();
+        for (SocioProyecto socio : socioProyectoRepository.findAllByOrderByNombreAsc()) {
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", socio.getId());
+            item.put("nombre", socio.getNombre());
+            item.put("telefono", socio.getTelefono() != null ? socio.getTelefono() : "");
+            item.put("correo", socio.getCorreo() != null ? socio.getCorreo() : "");
+            item.put("porcentajeParticipacion", socio.getPorcentajeParticipacion());
+            item.put("activo", socio.getActivo());
+            item.put("observaciones", socio.getObservaciones() != null ? socio.getObservaciones() : "");
+            item.put("totalRecibido", totalPorSocio.getOrDefault(socio.getId(), BigDecimal.ZERO));
+            socios.add(item);
+        }
+        return socios;
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public List<DistribucionSocio> registrarDistribucionSocios(String correoUsuario, LocalDate fechaDistribucion,
+                                                               String referencia, String descripcion,
+                                                               List<Map<String, Object>> distribucionesPayload) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para registrar distribuciones a socios.");
+
+        if (fechaDistribucion == null) {
+            throw new IllegalArgumentException("La fecha de distribucion es obligatoria.");
+        }
+        if (distribucionesPayload == null || distribucionesPayload.isEmpty()) {
+            throw new IllegalArgumentException("Debe registrar al menos un socio con monto a distribuir.");
+        }
+
+        List<DistribucionSocio> distribuciones = new ArrayList<>();
+        for (Map<String, Object> item : distribucionesPayload) {
+            if (item.get("socioId") == null || item.get("monto") == null) {
+                continue;
+            }
+
+            UUID socioId = UUID.fromString(item.get("socioId").toString());
+            BigDecimal monto = new BigDecimal(item.get("monto").toString());
+            if (monto.compareTo(BigDecimal.ZERO) <= 0) {
+                continue;
+            }
+
+            SocioProyecto socio = socioProyectoRepository.findById(socioId)
+                    .orElseThrow(() -> new IllegalArgumentException("Socio no encontrado: " + socioId));
+
+            if (socio.getActivo() != null && !socio.getActivo()) {
+                throw new IllegalArgumentException("No se puede distribuir dinero a un socio inactivo: " + socio.getNombre());
+            }
+
+            DistribucionSocio distribucion = new DistribucionSocio();
+            distribucion.setSocio(socio);
+            distribucion.setRegistradoPor(usuario);
+            distribucion.setMonto(monto);
+            distribucion.setFechaDistribucion(fechaDistribucion);
+            distribucion.setReferencia(referencia);
+            distribucion.setDescripcion(descripcion);
+            distribuciones.add(distribucion);
+        }
+
+        if (distribuciones.isEmpty()) {
+            throw new IllegalArgumentException("No hay montos validos para registrar distribucion.");
+        }
+
+        return distribucionSocioRepository.saveAll(distribuciones);
     }
 
     /**
@@ -140,12 +546,22 @@ public class FinanzasService {
      * Elimina todos los registros de egresos, pagos_ingresos, y limpia los lotes y compradores de prueba.
      */
     @Transactional(rollbackFor = Exception.class)
-    public void resetDatabase() {
+    public void resetDatabase(String correoUsuario) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("ADMINISTRADOR"),
+                "Solo un administrador puede restablecer la base de datos.");
+
         // 1. Limpiar pagos/ingresos
         pagoIngresoRepository.deleteAll();
         
         // 2. Limpiar egresos
         egresoRepository.deleteAll();
+
+        // 2.1 Limpiar aportes de inversionistas
+        aporteInversionistaRepository.deleteAll();
+
+        // 2.2 Limpiar distribuciones a socios
+        distribucionSocioRepository.deleteAll();
         
         // 3. Limpiar cuotas de amortización
         cuotaAmortizacionRepository.deleteAll();
@@ -197,7 +613,98 @@ public class FinanzasService {
                 crearContratoReset(maria, 15, etapa3, "SEPARADO", 12, vendedor);
             }
         }
+        // Re-sembrar aportes demo
+        Usuario admin = usuarioRepository.findByCorreo("admin@almaros.com").orElse(null);
+        if (admin != null && aporteInversionistaRepository.count() == 0) {
+            AporteInversionista aporte1 = new AporteInversionista();
+            aporte1.setNombreInversionista("Socio Capital Norte");
+            aporte1.setMonto(BigDecimal.valueOf(45000000L));
+            aporte1.setFechaAporte(LocalDate.now().minusMonths(3));
+            aporte1.setDescripcion("Capital inicial para apertura de vías internas.");
+            aporte1.setRegistradoPor(admin);
+
+            AporteInversionista aporte2 = new AporteInversionista();
+            aporte2.setNombreInversionista("Fondo Inmobiliario Andes");
+            aporte2.setMonto(BigDecimal.valueOf(30000000L));
+            aporte2.setFechaAporte(LocalDate.now().minusMonths(1));
+            aporte2.setDescripcion("Refuerzo de caja para urbanismo y servicios.");
+            aporte2.setRegistradoPor(admin);
+            aporteInversionistaRepository.saveAll(List.of(aporte1, aporte2));
+        }
+        sembrarSociosYDistribucionesDemo(admin);
         System.out.println(">>> LA BASE DE DATOS FUE RESTABLECIDA CORRECTAMENTE AL ESTADO SEMILLA.");
+    }
+
+    private void sembrarSociosYDistribucionesDemo(Usuario admin) {
+        if (admin == null) {
+            return;
+        }
+
+        if (socioProyectoRepository.count() == 0) {
+            SocioProyecto socio1 = new SocioProyecto(null, "Socio 1", "3001112233", "socio1@almaros.com",
+                    BigDecimal.valueOf(25), true, "Participacion fundadora");
+            SocioProyecto socio2 = new SocioProyecto(null, "Socio 2", "3001112244", "socio2@almaros.com",
+                    BigDecimal.valueOf(25), true, "Participacion fundadora");
+            SocioProyecto socio3 = new SocioProyecto(null, "Socio 3", "3001112255", "socio3@almaros.com",
+                    BigDecimal.valueOf(25), true, "Participacion fundadora");
+            SocioProyecto socio4 = new SocioProyecto(null, "Socio 4", "3001112266", "socio4@almaros.com",
+                    BigDecimal.valueOf(25), true, "Participacion fundadora");
+            socioProyectoRepository.saveAll(List.of(socio1, socio2, socio3, socio4));
+        }
+
+        if (distribucionSocioRepository.count() == 0) {
+            List<SocioProyecto> socios = socioProyectoRepository.findAllByActivoTrueOrderByNombreAsc();
+            if (socios.size() >= 3) {
+                List<DistribucionSocio> demo = new ArrayList<>();
+                for (int i = 0; i < 3; i++) {
+                    DistribucionSocio distribucion = new DistribucionSocio();
+                    distribucion.setSocio(socios.get(i));
+                    distribucion.setRegistradoPor(admin);
+                    distribucion.setMonto(BigDecimal.valueOf(5000000L));
+                    distribucion.setFechaDistribucion(LocalDate.now().minusDays(20));
+                    distribucion.setReferencia("Venta Lote 13 - abono inicial");
+                    distribucion.setDescripcion("Distribucion parcial de recaudo a socios");
+                    demo.add(distribucion);
+                }
+                distribucionSocioRepository.saveAll(demo);
+            }
+        }
+    }
+
+    private boolean estaEnRango(LocalDate fecha, LocalDate inicio, LocalDate fin) {
+        if (fecha == null) return false;
+        if (inicio != null && fecha.isBefore(inicio)) return false;
+        if (fin != null && fecha.isAfter(fin)) return false;
+        return true;
+    }
+
+    private String normalizarFiltro(String valor) {
+        if (valor == null || valor.trim().isEmpty() || "TODOS".equalsIgnoreCase(valor.trim())) {
+            return null;
+        }
+        return valor.trim().toUpperCase();
+    }
+
+    private Usuario obtenerUsuarioActivoPorCorreo(String correoUsuario) {
+        if (correoUsuario == null || correoUsuario.trim().isEmpty()) {
+            throw new IllegalArgumentException("El correo del usuario autenticado es obligatorio.");
+        }
+
+        Usuario usuario = usuarioRepository.findByCorreo(correoUsuario.trim().toLowerCase())
+                .orElseThrow(() -> new IllegalArgumentException("Usuario interno no encontrado."));
+
+        if (usuario.getActivo() != null && !usuario.getActivo()) {
+            throw new IllegalStateException("La cuenta del usuario autenticado se encuentra inactiva.");
+        }
+
+        return usuario;
+    }
+
+    private void validarRol(Usuario usuario, List<String> rolesPermitidos, String mensajeError) {
+        String rol = usuario.getRol() != null ? usuario.getRol().getNombreRol() : null;
+        if (rol == null || !rolesPermitidos.contains(rol)) {
+            throw new IllegalStateException(mensajeError);
+        }
     }
 
     private void crearContratoReset(Comprador comprador, int numeroLote, Etapa etapa, String estado, int plazo, Usuario vendedor) {

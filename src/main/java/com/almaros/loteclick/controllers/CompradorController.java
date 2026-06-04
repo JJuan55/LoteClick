@@ -2,11 +2,13 @@ package com.almaros.loteclick.controllers;
 
 import com.almaros.loteclick.models.Comprador;
 import com.almaros.loteclick.repositories.CompradorRepository;
+import com.almaros.loteclick.services.SessionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
@@ -22,15 +24,26 @@ public class CompradorController {
     @Autowired
     private CompradorRepository compradorRepository;
 
+    @Autowired
+    private SessionService sessionService;
+
     /**
      * Busca un comprador por su número de cédula.
      * @param cedula Cédula del comprador.
      * @return El comprador si existe, o 404 Not Found si es nuevo.
      */
     @GetMapping("/buscar/{cedula}")
-    public ResponseEntity<?> buscarPorCedula(@PathVariable String cedula) {
+    public ResponseEntity<?> buscarPorCedula(@RequestHeader("Authorization") String authorizationHeader,
+                                             @PathVariable String cedula) {
         if (cedula == null || cedula.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "La cédula es obligatoria"));
+        }
+
+        try {
+            sessionService.obtenerUsuarioAutenticado(authorizationHeader, List.of("VENDEDOR", "CONTADOR", "ADMINISTRADOR"),
+                    "No tiene permisos para consultar compradores.");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
         
         Optional<Comprador> compradorOpt = compradorRepository.findByCedula(cedula.trim());
@@ -44,11 +57,26 @@ public class CompradorController {
 
     /**
      * Registra un nuevo comprador en la base de datos de manera pasiva.
-     * @param comprador Datos del comprador.
+     * @param payload Datos del comprador y del usuario autenticado.
      * @return Comprador registrado con su UUID recién creado.
      */
     @PostMapping
-    public ResponseEntity<?> registrarComprador(@RequestBody Comprador comprador) {
+    public ResponseEntity<?> registrarComprador(@RequestHeader("Authorization") String authorizationHeader,
+                                                @RequestBody Map<String, Object> payload) {
+        try {
+            sessionService.obtenerUsuarioAutenticado(authorizationHeader, List.of("VENDEDOR", "ADMINISTRADOR"),
+                    "No tiene permisos para registrar compradores.");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+
+        Comprador comprador = new Comprador();
+        comprador.setCedula(payload.get("cedula") != null ? payload.get("cedula").toString() : null);
+        comprador.setNombre(payload.get("nombre") != null ? payload.get("nombre").toString() : null);
+        comprador.setTelefono(payload.get("telefono") != null ? payload.get("telefono").toString() : null);
+        comprador.setCorreo(payload.get("correo") != null ? payload.get("correo").toString() : null);
+        comprador.setDireccion(payload.get("direccion") != null ? payload.get("direccion").toString() : null);
+
         // Validar campos obligatorios
         if (comprador.getCedula() == null || comprador.getCedula().trim().isEmpty() ||
             comprador.getNombre() == null || comprador.getNombre().trim().isEmpty() ||

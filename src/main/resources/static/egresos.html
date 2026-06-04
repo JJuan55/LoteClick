@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LoteClick - Control de Egresos</title>
+    <title>LoteClick - Flujo de Caja</title>
     <!-- Google Fonts: Inter -->
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Bootstrap 5 CSS via CDN -->
@@ -167,6 +167,11 @@
             window.location.href = "index.html";
         } else {
             const user = JSON.parse(activeUser);
+            if (!user.token) {
+                sessionStorage.clear();
+                alert("La sesión ya no es válida. Inicie sesión nuevamente.");
+                window.location.href = "index.html";
+            }
             // Restringir si no es CONTADOR o ADMINISTRADOR (CU01 / CU06)
             if (user.rol !== "CONTADOR" && user.rol !== "ADMINISTRADOR") {
                 alert("No tiene permisos para ver esta sección.");
@@ -204,7 +209,7 @@
     <div class="main-content">
         <!-- Barra de Navegación Superior -->
         <div class="navbar-custom">
-            <h4 class="m-0 text-navy" style="color: var(--color-navy); font-weight: 700;">Control de Egresos</h4>
+            <h4 class="m-0 text-navy" style="color: var(--color-navy); font-weight: 700;">Flujo de Caja</h4>
             <div class="navbar-user">
                 <button class="btn btn-outline-secondary btn-sm me-2 fw-semibold" id="resetDbBtn" title="Restablecer base de datos al estado semilla original"><i class="bi bi-arrow-clockwise"></i> Restablecer BD</button>
                 <span class="user-badge" id="userNameLabel">Cargando...</span>
@@ -217,35 +222,60 @@
             <!-- Encabezado con Botón de Registrar Gasto -->
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
                 <div>
-                    <h5 class="text-navy fw-bold mb-1" style="color: var(--color-navy);"><i class="bi bi-wallet2 text-success"></i> Flujo de Caja y Gastos Operativos</h5>
-                    <p class="text-muted small mb-0">Registre salidas de dinero y filtre el historial de egresos por rango de fechas.</p>
+                    <h5 class="text-navy fw-bold mb-1" style="color: var(--color-navy);"><i class="bi bi-wallet2 text-success"></i> Flujo de Caja, Egresos y Socios</h5>
+                    <p class="text-muted small mb-0">Controle ingresos, salidas operativas y distribuciones a socios desde una sola vista.</p>
                 </div>
-                <button class="btn btn-navy text-white fw-bold px-4 py-2.5 rounded-3 shadow-sm animate__animated animate__pulse animate__infinite" style="animation-duration: 2s;" data-bs-toggle="modal" data-bs-target="#egresoModal">
-                    <i class="bi bi-plus-circle-fill me-2"></i> Registrar Gasto Operativo
-                </button>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-success text-white fw-bold px-4 py-2.5 rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#repartoModal">
+                        <i class="bi bi-people-fill me-2"></i> Registrar Reparto
+                    </button>
+                    <button class="btn btn-navy text-white fw-bold px-4 py-2.5 rounded-3 shadow-sm animate__animated animate__pulse animate__infinite" style="animation-duration: 2s;" data-bs-toggle="modal" data-bs-target="#egresoModal">
+                        <i class="bi bi-plus-circle-fill me-2"></i> Registrar Gasto Operativo
+                    </button>
+                </div>
             </div>
 
             <!-- Filtros de Auditoría y Liquidación -->
             <div class="card border-0 shadow-sm p-4 mb-4 rounded-4" style="background: #ffffff;">
                 <h6 class="text-navy fw-bold mb-3"><i class="bi bi-funnel-fill text-success"></i> Filtros de Auditoría Contable</h6>
                 <form id="filtroEgresosForm" class="row align-items-end g-3">
-                    <div class="col-md-4 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label for="fechaInicio" class="form-label small fw-semibold text-navy">Fecha Inicio</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-calendar-date"></i></span>
                             <input type="date" class="form-control bg-light border-start-0" id="fechaInicio">
                         </div>
                     </div>
-                    <div class="col-md-4 col-sm-6">
+                    <div class="col-md-3 col-sm-6">
                         <label for="fechaFin" class="form-label small fw-semibold text-navy">Fecha Fin</label>
                         <div class="input-group">
                             <span class="input-group-text bg-light text-muted border-end-0"><i class="bi bi-calendar-date"></i></span>
                             <input type="date" class="form-control bg-light border-start-0" id="fechaFin">
                         </div>
                     </div>
-                    <div class="col-md-4 d-flex gap-2">
+                    <div class="col-md-3 col-sm-6">
+                        <label for="tipoSalida" class="form-label small fw-semibold text-navy">Tipo de Salida</label>
+                        <select class="form-select bg-light" id="tipoSalida">
+                            <option value="TODOS">Todas</option>
+                            <option value="OPERATIVO">Gasto operativo</option>
+                            <option value="DISTRIBUCION_SOCIOS">Distribucion a socios</option>
+                        </select>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <label for="rubroFiltro" class="form-label small fw-semibold text-navy">Rubro</label>
+                        <select class="form-select bg-light" id="rubroFiltro">
+                            <option value="TODOS">Todos</option>
+                            <option value="MAQUINARIA">MAQUINARIA</option>
+                            <option value="SUMINISTRO_AGUA">SUMINISTRO_AGUA</option>
+                            <option value="SERVICIOS_PUBLICOS">SERVICIOS_PUBLICOS</option>
+                            <option value="EXCAVACION">EXCAVACION</option>
+                            <option value="OTROS">OTROS</option>
+                            <option value="DISTRIBUCION_SOCIOS">DISTRIBUCION_SOCIOS</option>
+                        </select>
+                    </div>
+                    <div class="col-12 d-flex gap-2">
                         <button type="submit" class="btn btn-navy text-white fw-bold w-100 py-2.5 rounded-3">
-                            <i class="bi bi-calculator"></i> Liquidar Gastos
+                            <i class="bi bi-calculator"></i> Filtrar Flujo
                         </button>
                         <button type="button" class="btn btn-light fw-bold border py-2.5 rounded-3" id="btnLimpiarFiltros">
                             Limpiar
@@ -257,8 +287,14 @@
             <!-- Resumen Financiero Rápido -->
             <div class="row g-3 mb-4">
                 <div class="col-md-4 col-sm-6">
+                    <div class="card border-0 shadow-sm p-3 rounded-3 bg-success text-white h-100">
+                        <span class="small opacity-75 d-block mb-1">Caja Disponible</span>
+                        <h3 class="fw-bold m-0" id="saldoCajaLabel">$ 0 COP</h3>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
                     <div class="card border-0 shadow-sm p-3 rounded-3 bg-navy text-white h-100">
-                        <span class="small opacity-75 d-block mb-1">Total Egresos en Rango</span>
+                        <span class="small opacity-75 d-block mb-1">Total Salidas de Caja</span>
                         <h3 class="fw-bold m-0" id="totalEgresosLabel">$ 0 COP</h3>
                     </div>
                 </div>
@@ -268,17 +304,145 @@
                         <h3 class="fw-bold m-0 text-navy" id="cantidadEgresosLabel">0 registros</h3>
                     </div>
                 </div>
+                <div class="col-md-4 col-sm-6">
+                    <div class="card border-0 shadow-sm p-3 rounded-3 bg-white text-navy h-100 border">
+                        <span class="small text-muted d-block mb-1">Rubro con Mayor Impacto</span>
+                        <h6 class="fw-bold m-0 text-navy text-uppercase" id="rubroMayorLabel">Sin datos</h6>
+                        <span class="small text-muted mt-2 d-block" id="rubroMayorMontoLabel">$ 0 COP</span>
+                    </div>
+                </div>
             </div>
 
-            <!-- Tabla de Historial de Egresos -->
-            <div class="card border-0 shadow-sm p-4 rounded-4" style="background: #ffffff;">
-                <h6 class="text-navy fw-bold mb-3"><i class="bi bi-table text-success"></i> Historial Cronológico de Gastos</h6>
+            <div class="row g-3 mb-4">
+                <div class="col-md-4 col-sm-6">
+                    <div class="card border-0 shadow-sm p-3 rounded-3 bg-success text-white h-100">
+                        <span class="small opacity-75 d-block mb-1">Total Ingresos en Rango</span>
+                        <h3 class="fw-bold m-0" id="totalIngresosLabel">$ 0 COP</h3>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <div class="card border-0 shadow-sm p-3 rounded-3 bg-white text-navy h-100 border">
+                        <span class="small text-muted d-block mb-1">Ingresos por Ventas</span>
+                        <h3 class="fw-bold m-0 text-success" id="totalVentasIngresosLabel">$ 0 COP</h3>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <div class="card border-0 shadow-sm p-3 rounded-3 bg-white text-navy h-100 border">
+                        <span class="small text-muted d-block mb-1">Aportes de Inversionistas</span>
+                        <h3 class="fw-bold m-0 text-success" id="totalInversionistasLabel">$ 0 COP</h3>
+                    </div>
+                </div>
+                <div class="col-md-4 col-sm-6">
+                    <div class="card border-0 shadow-sm p-3 rounded-3 bg-white text-navy h-100 border">
+                        <span class="small text-muted d-block mb-1">Distribuido a Socios</span>
+                        <h3 class="fw-bold m-0 text-danger" id="totalDistribucionesSociosLabel">$ 0 COP</h3>
+                    </div>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm p-4 rounded-4 mb-4" style="background: #ffffff;">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <div>
+                        <h6 class="text-navy fw-bold mb-1"><i class="bi bi-people-fill text-success"></i> Socios del Proyecto</h6>
+                        <p class="text-muted small mb-0">Control de socios y acumulado recibido por cada uno.</p>
+                    </div>
+                    <button class="btn btn-navy fw-bold px-3 py-2 rounded-3" data-bs-toggle="modal" data-bs-target="#socioModal">
+                        <i class="bi bi-person-plus-fill me-2"></i> Registrar Socio
+                    </button>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="bg-light">
+                            <tr>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Socio</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Contacto</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Participacion</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Total Recibido</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sociosTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando socios...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Consolidado por Rubro -->
+            <div class="card border-0 shadow-sm p-4 rounded-4 mb-4" style="background: #ffffff;">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <h6 class="text-navy fw-bold mb-0"><i class="bi bi-journal-text text-success"></i> Liquidación Consolidada por Rubro</h6>
+                    <span class="small text-muted" id="cantidadRubrosLabel">0 rubros</span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="bg-light">
+                            <tr>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Rubro</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Cantidad de Gastos</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Total Acumulado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="resumenRubrosTableBody">
+                            <tr>
+                                <td colspan="3" class="text-center py-4 text-muted">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Calculando consolidado por rubro...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="card border-0 shadow-sm p-4 rounded-4 mb-4" style="background: #ffffff;">
+                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
+                    <div>
+                        <h6 class="text-navy fw-bold mb-1"><i class="bi bi-cash-coin text-success"></i> Registro General de Ingresos</h6>
+                        <p class="text-muted small mb-0">Pagos por ventas, cuotas de separación y aportes de inversionistas.</p>
+                    </div>
+                    <button class="btn btn-success fw-bold px-3 py-2 rounded-3" data-bs-toggle="modal" data-bs-target="#aporteModal">
+                        <i class="bi bi-building-add me-2"></i> Registrar Aporte
+                    </button>
+                </div>
                 <div class="table-responsive">
                     <table class="table table-hover align-middle">
                         <thead class="bg-light">
                             <tr>
                                 <th scope="col" style="color: var(--color-navy); font-weight: 600;">Fecha</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Origen</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Tipo</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Referencia</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Detalle</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Monto (COP)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="ingresosTableBody">
+                            <tr>
+                                <td colspan="6" class="text-center py-4 text-muted">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando ingresos...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Tabla de Historial de Egresos -->
+            <div class="card border-0 shadow-sm p-4 rounded-4" style="background: #ffffff;">
+                <h6 class="text-navy fw-bold mb-3"><i class="bi bi-table text-success"></i> Historial Cronologico de Salidas</h6>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle">
+                        <thead class="bg-light">
+                            <tr>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Fecha</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Tipo</th>
                                 <th scope="col" style="color: var(--color-navy); font-weight: 600;">Rubro Contable</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Beneficiario</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Referencia</th>
                                 <th scope="col" style="color: var(--color-navy); font-weight: 600;">Descripción</th>
                                 <th scope="col" style="color: var(--color-navy); font-weight: 600;">Monto (COP)</th>
                                 <th scope="col" style="color: var(--color-navy); font-weight: 600;">Registrado Por</th>
@@ -286,7 +450,7 @@
                         </thead>
                         <tbody id="egresosTableBody">
                             <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">
+                                <td colspan="8" class="text-center py-4 text-muted">
                                     <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando egresos...
                                 </td>
                             </tr>
@@ -347,8 +511,141 @@
         </div>
     </div>
 
+    <div class="modal fade" id="aporteModal" tabindex="-1" aria-labelledby="aporteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-success text-white p-3 px-4">
+                    <h5 class="modal-title" id="aporteModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-bank2"></i> Registrar Aporte de Inversionista
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="aporteAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="aporteAlertText"></span>
+                    </div>
+                    <form id="aporteForm">
+                        <div class="mb-3">
+                            <label for="aporteNombre" class="form-label text-navy fw-semibold">Nombre del Inversionista <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="aporteNombre" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="aporteMonto" class="form-label text-navy fw-semibold">Monto del Aporte (COP) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control fw-bold text-success fs-5" id="aporteMonto" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="aporteFecha" class="form-label text-navy fw-semibold">Fecha del Aporte <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="aporteFecha" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="aporteDescripcion" class="form-label text-navy fw-semibold">Descripción</label>
+                            <textarea class="form-control" id="aporteDescripcion" rows="3"></textarea>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarAporte">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="aporteSpinner" role="status" aria-hidden="true"></span>
+                                Confirmar Registro
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="socioModal" tabindex="-1" aria-labelledby="socioModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-navy text-white p-3 px-4">
+                    <h5 class="modal-title" id="socioModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-person-plus-fill"></i> Registrar Socio del Proyecto
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="socioAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="socioAlertText"></span>
+                    </div>
+                    <form id="socioForm">
+                        <div class="mb-3">
+                            <label for="socioNombre" class="form-label text-navy fw-semibold">Nombre del Socio <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="socioNombre" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="socioTelefono" class="form-label text-navy fw-semibold">Telefono</label>
+                            <input type="text" class="form-control" id="socioTelefono">
+                        </div>
+                        <div class="mb-3">
+                            <label for="socioCorreo" class="form-label text-navy fw-semibold">Correo</label>
+                            <input type="email" class="form-control" id="socioCorreo">
+                        </div>
+                        <div class="mb-3">
+                            <label for="socioParticipacion" class="form-label text-navy fw-semibold">Participacion (%)</label>
+                            <input type="number" class="form-control" id="socioParticipacion" min="0" max="100" step="0.01">
+                        </div>
+                        <div class="mb-3">
+                            <label for="socioObservaciones" class="form-label text-navy fw-semibold">Observaciones</label>
+                            <textarea class="form-control" id="socioObservaciones" rows="3"></textarea>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-navy text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarSocio">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="socioSpinner" role="status" aria-hidden="true"></span>
+                                Guardar Socio
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="modal fade" id="repartoModal" tabindex="-1" aria-labelledby="repartoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-success text-white p-3 px-4">
+                    <h5 class="modal-title" id="repartoModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-cash-stack"></i> Registrar Reparto a Socios
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="repartoAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="repartoAlertText"></span>
+                    </div>
+                    <form id="repartoForm">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="repartoFecha" class="form-label text-navy fw-semibold">Fecha <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="repartoFecha" required>
+                            </div>
+                            <div class="col-md-8">
+                                <label for="repartoReferencia" class="form-label text-navy fw-semibold">Referencia</label>
+                                <input type="text" class="form-control" id="repartoReferencia" placeholder="Ej. Venta lote 13 - abono de 15 millones">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label for="repartoDescripcion" class="form-label text-navy fw-semibold">Descripcion</label>
+                            <textarea class="form-control" id="repartoDescripcion" rows="2" placeholder="Detalle del reparto"></textarea>
+                        </div>
+                        <div class="mt-4">
+                            <h6 class="fw-bold text-navy mb-3">Montos por Socio</h6>
+                            <div id="repartoSociosContainer" class="d-grid gap-2"></div>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarReparto">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="repartoSpinner" role="status" aria-hidden="true"></span>
+                                Guardar Reparto
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap 5 Bundle JS -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/session.js"></script>
 
     <!-- Custom Script JS -->
     <script src="js/pagos.js"></script>
