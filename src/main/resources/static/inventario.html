@@ -253,6 +253,11 @@
             window.location.href = "index.html";
         } else {
             const user = JSON.parse(activeUser);
+            if (!user.token) {
+                sessionStorage.clear();
+                alert("La sesión ya no es válida. Inicie sesión nuevamente.");
+                window.location.href = "index.html";
+            }
             // Restringir si no es VENDEDOR o ADMINISTRADOR (CU01 / CU03)
             if (user.rol !== "VENDEDOR" && user.rol !== "ADMINISTRADOR") {
                 alert("No tiene permisos para ver esta sección.");
@@ -513,6 +518,7 @@
 
     <!-- Bootstrap 5 Bundle JS (incluye Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/session.js"></script>
 
     <!-- Scripts de LoteClick -->
     <script>

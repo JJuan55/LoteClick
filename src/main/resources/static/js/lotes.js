@@ -110,7 +110,9 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
 
         try {
-            const response = await fetch(`/api/lotes?etapaId=${etapaId}`);
+            const response = await fetch(`/api/lotes?etapaId=${etapaId}`, {
+                headers: getAuthHeaders()
+            });
             if (!response.ok) {
                 throw new Error("No se pudo obtener el inventario de lotes.");
             }
@@ -413,7 +415,9 @@ document.addEventListener("DOMContentLoaded", () => {
         buscarAlert.classList.remove("d-none");
 
         try {
-            const response = await fetch(`/api/compradores/buscar/${cedula}`);
+            const response = await fetch(`/api/compradores/buscar/${cedula}`, {
+                headers: getAuthHeaders()
+            });
             
             if (response.ok) {
                 // Comprador encontrado (200 OK)
@@ -480,9 +484,9 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const response = await fetch("/api/compradores", {
                 method: "POST",
-                headers: {
+                headers: getAuthHeaders({
                     "Content-Type": "application/json"
-                },
+                }),
                 body: JSON.stringify({
                     cedula,
                     nombre,
@@ -581,15 +585,10 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         }
 
-        // Obtener el correo del vendedor del sessionStorage
-        const activeUserData = JSON.parse(sessionStorage.getItem("user"));
-        const vendedorCorreo = activeUserData ? activeUserData.correo : "vendedor@almaros.com";
-
         // Formar FormData
         const formData = new FormData();
         formData.append("loteId", loteSeleccionado.id);
         formData.append("compradorId", compradorSeleccionado.id);
-        formData.append("vendedorCorreo", vendedorCorreo);
         formData.append("precioVentaPactado", precio);
         formData.append("cuotaSeparacion", separacion);
         formData.append("plazoMeses", plazo);
@@ -602,6 +601,7 @@ document.addEventListener("DOMContentLoaded", () => {
         try {
             const response = await fetch("/api/ventas", {
                 method: "POST",
+                headers: getAuthHeaders(),
                 body: formData
             });
 

@@ -173,6 +173,11 @@
             window.location.href = "index.html";
         } else {
             const user = JSON.parse(activeUser);
+            if (!user.token) {
+                sessionStorage.clear();
+                alert("La sesión ya no es válida. Inicie sesión nuevamente.");
+                window.location.href = "index.html";
+            }
             // Restringir si no es ADMIN o CONTADOR (CU01 / CU08)
             if (user.rol !== "ADMINISTRADOR" && user.rol !== "CONTADOR") {
                 alert("No tiene permisos para ver esta sección.");
@@ -222,7 +227,7 @@
                     <div class="card-kpi">
                         <div>
                             <span class="text-muted small">Ventas Efectivas</span>
-                            <h3 class="m-0 mt-1" style="font-weight: 700; color: var(--color-navy);">0 COP</h3>
+                            <h3 class="m-0 mt-1" id="ventasEfectivasLabel" style="font-weight: 700; color: var(--color-navy);">Cargando...</h3>
                         </div>
                         <div class="kpi-icon bg-primary bg-opacity-10 text-primary">
                             <i class="bi bi-file-earmark-text-fill"></i>
@@ -234,7 +239,7 @@
                     <div class="card-kpi">
                         <div>
                             <span class="text-muted small">Total Recaudado</span>
-                            <h3 class="m-0 mt-1 text-success" style="font-weight: 700;">0 COP</h3>
+                            <h3 class="m-0 mt-1 text-success" id="totalRecaudadoLabel" style="font-weight: 700;">Cargando...</h3>
                         </div>
                         <div class="kpi-icon bg-success bg-opacity-10 text-success">
                             <i class="bi bi-cash-coin"></i>
@@ -246,7 +251,7 @@
                     <div class="card-kpi">
                         <div>
                             <span class="text-muted small">Pendiente Recaudo</span>
-                            <h3 class="m-0 mt-1 text-warning" style="font-weight: 700;">0 COP</h3>
+                            <h3 class="m-0 mt-1 text-warning" id="pendienteRecaudoLabel" style="font-weight: 700;">Cargando...</h3>
                         </div>
                         <div class="kpi-icon bg-warning bg-opacity-10 text-warning">
                             <i class="bi bi-clock-history"></i>
@@ -257,25 +262,51 @@
                 <div class="col-md-3">
                     <div class="card-kpi">
                         <div>
+                            <span class="text-muted small">Caja Disponible</span>
+                            <h3 class="m-0 mt-1 text-success" id="saldoCajaLabel" style="font-weight: 700;">Cargando...</h3>
+                        </div>
+                        <div class="kpi-icon bg-success bg-opacity-10 text-success">
+                            <i class="bi bi-wallet2"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="row g-4 mb-4">
+                <div class="col-md-6">
+                    <div class="card-kpi">
+                        <div>
                             <span class="text-muted small">Utilidad Neta</span>
-                            <h3 class="m-0 mt-1 text-danger" style="font-weight: 700;">0 COP</h3>
+                            <h3 class="m-0 mt-1 text-danger" id="utilidadNetaLabel" style="font-weight: 700;">Cargando...</h3>
                         </div>
                         <div class="kpi-icon bg-danger bg-opacity-10 text-danger">
                             <i class="bi bi-pie-chart-fill"></i>
                         </div>
                     </div>
                 </div>
+                <div class="col-md-6">
+                    <div class="card-kpi">
+                        <div>
+                            <span class="text-muted small">Distribuido a Socios</span>
+                            <h3 class="m-0 mt-1 text-primary" id="totalDistribucionesSociosLabel" style="font-weight: 700;">Cargando...</h3>
+                        </div>
+                        <div class="kpi-icon bg-primary bg-opacity-10 text-primary">
+                            <i class="bi bi-people-fill"></i>
+                        </div>
+                    </div>
+                </div>
             </div>
 
             <!-- Panel de Alerta de Construcción -->
-            <div class="alert alert-info border-info bg-info bg-opacity-10 text-dark" role="alert">
-                <h5 class="alert-heading" style="font-weight: 600;"><i class="bi bi-info-circle-fill"></i> Módulo 0 Completado</h5>
-                <p class="mb-0">Te has autenticado correctamente con un rol autorizado. Las métricas del dashboard se conectarán en tiempo real al finalizar los siguientes módulos.</p>
+            <div class="alert alert-info border-info bg-info bg-opacity-10 text-dark" role="alert" id="dashboardStatusAlert">
+                <h5 class="alert-heading" style="font-weight: 600;"><i class="bi bi-info-circle-fill"></i> Resumen Financiero</h5>
+                <p class="mb-0" id="dashboardStatusText">Consultando métricas financieras en tiempo real...</p>
             </div>
         </div>
     </div>
 
     <!-- Scripts -->
+    <script src="js/session.js"></script>
     <script>
         document.addEventListener("DOMContentLoaded", () => {
             const user = JSON.parse(sessionStorage.getItem("user"));
@@ -294,6 +325,54 @@
                 sessionStorage.clear();
                 window.location.href = "index.html";
             });
+
+            function formatCOP(val) {
+                return new Intl.NumberFormat('es-CO', {
+                    style: 'currency',
+                    currency: 'COP',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(val || 0);
+            }
+
+            async function cargarResumenDashboard() {
+                const statusAlert = document.getElementById("dashboardStatusAlert");
+                const statusText = document.getElementById("dashboardStatusText");
+
+                try {
+                    const response = await fetch(`/api/dashboard/resumen`, {
+                        headers: getAuthHeaders()
+                    });
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || "No se pudo cargar el resumen financiero.");
+                    }
+
+                    document.getElementById("ventasEfectivasLabel").textContent = formatCOP(data.ventasEfectivas);
+                    document.getElementById("totalRecaudadoLabel").textContent = formatCOP(data.totalRecaudado);
+                    document.getElementById("pendienteRecaudoLabel").textContent = formatCOP(data.pendienteRecaudo);
+                    document.getElementById("saldoCajaLabel").textContent = formatCOP(data.saldoCaja);
+                    document.getElementById("utilidadNetaLabel").textContent = formatCOP(data.utilidadNeta);
+                    document.getElementById("totalDistribucionesSociosLabel").textContent = formatCOP(data.totalDistribucionesSocios);
+
+                    statusAlert.className = "alert alert-success border-success bg-success bg-opacity-10 text-dark";
+                    statusText.textContent = `Resumen cargado: ${data.cantidadVentas} ventas, ${data.cantidadPagos} pagos, ${data.cantidadEgresos} egresos y ${data.cantidadDistribucionesSocios} distribuciones a socios.`;
+                } catch (error) {
+                    console.error(error);
+                    document.getElementById("ventasEfectivasLabel").textContent = formatCOP(0);
+                    document.getElementById("totalRecaudadoLabel").textContent = formatCOP(0);
+                    document.getElementById("pendienteRecaudoLabel").textContent = formatCOP(0);
+                    document.getElementById("saldoCajaLabel").textContent = formatCOP(0);
+                    document.getElementById("utilidadNetaLabel").textContent = formatCOP(0);
+                    document.getElementById("totalDistribucionesSociosLabel").textContent = formatCOP(0);
+
+                    statusAlert.className = "alert alert-danger border-danger bg-danger bg-opacity-10 text-danger";
+                    statusText.textContent = "No se pudo cargar el resumen financiero desde el backend.";
+                }
+            }
+
+            cargarResumenDashboard();
         });
     </script>
 </body>

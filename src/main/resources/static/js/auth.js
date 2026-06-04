@@ -19,11 +19,31 @@ document.addEventListener("DOMContentLoaded", () => {
     if (activeUser) {
         try {
             const user = JSON.parse(activeUser);
+            if (!user.token) {
+                sessionStorage.clear();
+                return;
+            }
             redirigirPorRol(user.rol);
         } catch (e) {
             sessionStorage.clear();
         }
     }
+
+    window.getAuthHeaders = function(extraHeaders = {}) {
+        const rawUser = sessionStorage.getItem("user");
+        if (!rawUser) return extraHeaders;
+
+        try {
+            const user = JSON.parse(rawUser);
+            if (!user.token) return extraHeaders;
+            return {
+                ...extraHeaders,
+                "Authorization": `Bearer ${user.token}`
+            };
+        } catch (e) {
+            return extraHeaders;
+        }
+    };
 
     // Manejar el submit del formulario
     loginForm.addEventListener("submit", async (event) => {

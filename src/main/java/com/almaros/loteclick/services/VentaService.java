@@ -66,6 +66,15 @@ public class VentaService {
         Usuario vendedor = usuarioRepository.findByCorreo(vendedorCorreo.trim().toLowerCase())
                 .orElseThrow(() -> new IllegalArgumentException("Vendedor no encontrado"));
 
+        if (vendedor.getActivo() != null && !vendedor.getActivo()) {
+            throw new IllegalStateException("La cuenta del usuario autenticado se encuentra inactiva.");
+        }
+
+        String rol = vendedor.getRol() != null ? vendedor.getRol().getNombreRol() : null;
+        if (rol == null || !List.of("VENDEDOR", "ADMINISTRADOR").contains(rol)) {
+            throw new IllegalStateException("No tiene permisos para registrar ventas.");
+        }
+
         // 4. Subir documento de propiedad
         String urlPropiedad = "";
         if (documentoPropiedad != null && !documentoPropiedad.isEmpty()) {

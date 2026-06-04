@@ -2,6 +2,7 @@ package com.almaros.loteclick.controllers;
 
 import com.almaros.loteclick.models.Usuario;
 import com.almaros.loteclick.repositories.UsuarioRepository;
+import com.almaros.loteclick.services.SessionService;
 import lombok.Data;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
@@ -22,6 +23,9 @@ public class AuthController {
 
     @Autowired
     private UsuarioRepository usuarioRepository;
+
+    @Autowired
+    private SessionService sessionService;
 
     /**
      * Endpoint para autenticar a un usuario interno.
@@ -67,12 +71,14 @@ public class AuthController {
 
         // Obtener el nombre del rol asociado
         String nombreRol = (usuario.getRol() != null) ? usuario.getRol().getNombreRol() : "SIN_ROL";
+        String token = sessionService.crearSesion(usuario);
 
         // Retornar JSON de éxito
         return ResponseEntity.ok(Map.of(
                 "nombreCompleto", usuario.getNombreCompleto(),
                 "correo", usuario.getCorreo(),
-                "rol", nombreRol
+                "rol", nombreRol,
+                "token", token
         ));
     }
 
