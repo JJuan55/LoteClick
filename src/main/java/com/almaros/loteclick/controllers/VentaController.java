@@ -9,6 +9,7 @@ import com.almaros.loteclick.repositories.CompradorRepository;
 import com.almaros.loteclick.repositories.CuotaAmortizacionRepository;
 import com.almaros.loteclick.repositories.VentaContratoRepository;
 import com.almaros.loteclick.repositories.PagoIngresoRepository;
+import com.almaros.loteclick.services.SessionService;
 import com.almaros.loteclick.services.VentaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -44,6 +45,8 @@ public class VentaController {
 
     @Autowired
     private PagoIngresoRepository pagoIngresoRepository;
+    @Autowired
+    private SessionService sessionService;
 
     /**
      * Endpoint para registrar una nueva venta con su archivo binario (Multipart).

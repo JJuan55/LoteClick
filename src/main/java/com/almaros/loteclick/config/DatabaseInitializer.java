@@ -1,23 +1,8 @@
 package com.almaros.loteclick.config;
 
-import com.almaros.loteclick.models.Role;
-import com.almaros.loteclick.models.Usuario;
-import com.almaros.loteclick.models.Etapa;
-import com.almaros.loteclick.models.Lote;
-import com.almaros.loteclick.models.Comprador;
-import com.almaros.loteclick.models.VentaContrato;
-import com.almaros.loteclick.models.CuotaAmortizacion;
-import com.almaros.loteclick.models.PagoIngreso;
-import com.almaros.loteclick.repositories.RolRepository;
-import com.almaros.loteclick.repositories.UsuarioRepository;
-import com.almaros.loteclick.repositories.EtapaRepository;
-import com.almaros.loteclick.repositories.LoteRepository;
-import com.almaros.loteclick.repositories.CompradorRepository;
-import com.almaros.loteclick.repositories.VentaContratoRepository;
-import com.almaros.loteclick.repositories.CuotaAmortizacionRepository;
-import com.almaros.loteclick.repositories.AporteInversionistaRepository;
-import com.almaros.loteclick.repositories.DistribucionSocioRepository;
-import com.almaros.loteclick.repositories.SocioProyectoRepository;
+import com.almaros.loteclick.models.*;
+import com.almaros.loteclick.repositories.*;
+import com.almaros.loteclick.services.StorageService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -65,6 +50,10 @@ public class DatabaseInitializer implements CommandLineRunner {
 
     @Autowired
     private DistribucionSocioRepository distribucionSocioRepository;
+    @Autowired
+    private StorageService storageService;
+    @Autowired
+    private PagoIngresoRepository pagoIngresoRepository;
 
 
     @Override
