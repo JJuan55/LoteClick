@@ -1,7 +1,10 @@
 document.addEventListener("DOMContentLoaded", () => {
     // 1. Validar y cargar sesión
-    const user = JSON.parse(sessionStorage.getItem("user"));
-    if (user) {
+    const user = typeof getActiveUser === "function"
+        ? getActiveUser()
+        : JSON.parse(sessionStorage.getItem("user"));
+
+    if (user && user.token) {
         document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (${user.rol})`;
         
         // Configurar accesibilidad según el rol
@@ -13,8 +16,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("menuLotes").style.display = "block";
             }
         }
+        if (user.rol !== "ADMINISTRADOR" && document.getElementById("resetDbBtn")) {
+            document.getElementById("resetDbBtn").style.display = "none";
+        }
     } else {
-        alert("Acceso denegado. Inicie sesión primero.");
+        alert("La sesión no es válida o expiró. Inicie sesión nuevamente.");
+        sessionStorage.clear();
         window.location.href = "index.html";
         return;
     }
@@ -35,94 +42,368 @@ document.addEventListener("DOMContentLoaded", () => {
         }).format(val);
     }
 
+    async function parseApiResponse(response) {
+        const rawText = await response.text();
+        if (!rawText) {
+            return {};
+        }
+
+        try {
+            return JSON.parse(rawText);
+        } catch (error) {
+            throw new Error("El servidor devolvió una respuesta inválida.");
+        }
+    }
+
+    function manejarSesionInvalida(mensaje) {
+        alert(mensaje || "La sesión no es válida. Inicia sesión nuevamente.");
+        sessionStorage.clear();
+        window.location.href = "index.html";
+    }
+
     // Establecer fecha por defecto en el modal (hoy)
     const egresoFechaInput = document.getElementById("egresoFecha");
     if (egresoFechaInput) {
         egresoFechaInput.value = new Date().toISOString().split('T')[0];
     }
+    const aporteFechaInput = document.getElementById("aporteFecha");
+    if (aporteFechaInput) {
+        aporteFechaInput.value = new Date().toISOString().split('T')[0];
+    }
+    const repartoFechaInput = document.getElementById("repartoFecha");
+    if (repartoFechaInput) {
+        repartoFechaInput.value = new Date().toISOString().split('T')[0];
+    }
 
     // Modal de bootstrap
     const egresoModalEl = document.getElementById("egresoModal");
     const egresoModal = egresoModalEl ? new bootstrap.Modal(egresoModalEl) : null;
+    const aporteModalEl = document.getElementById("aporteModal");
+    const aporteModal = aporteModalEl ? new bootstrap.Modal(aporteModalEl) : null;
+    const socioModalEl = document.getElementById("socioModal");
+    const socioModal = socioModalEl ? new bootstrap.Modal(socioModalEl) : null;
+    const repartoModalEl = document.getElementById("repartoModal");
+    const repartoModal = repartoModalEl ? new bootstrap.Modal(repartoModalEl) : null;
 
-    // 3. Cargar listado de egresos
-    async function cargarEgresos(fechaInicio = "", fechaFin = "") {
-        const tableBody = document.getElementById("egresosTableBody");
-        if (!tableBody) return;
+    let sociosCache = [];
 
-        tableBody.innerHTML = `
+    function obtenerFiltrosActuales() {
+        return {
+            fechaInicio: document.getElementById("fechaInicio")?.value || "",
+            fechaFin: document.getElementById("fechaFin")?.value || "",
+            tipoSalida: document.getElementById("tipoSalida")?.value || "TODOS",
+            rubro: document.getElementById("rubroFiltro")?.value || "TODOS"
+        };
+    }
+
+    async function cargarSocios() {
+        const sociosBody = document.getElementById("sociosTableBody");
+        if (!sociosBody) {
+            return;
+        }
+
+        sociosBody.innerHTML = `
             <tr>
                 <td colspan="5" class="text-center py-4 text-muted">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Consultando egresos en Supabase...
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando socios...
                 </td>
             </tr>
         `;
 
         try {
-            let url = "/api/egresos/liquidar";
+            const response = await fetch("/api/socios", {
+                headers: getAuthHeaders()
+            });
+            const socios = await parseApiResponse(response);
+
+            if (!response.ok) {
+                throw new Error(socios.error || "No se pudo obtener el listado de socios.");
+            }
+
+            sociosCache = Array.isArray(socios) ? socios : [];
+            sociosBody.innerHTML = "";
+
+            if (sociosCache.length === 0) {
+                sociosBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-muted">
+                            <i class="bi bi-info-circle fs-4 d-block mb-2"></i> No hay socios registrados.
+                        </td>
+                    </tr>
+                `;
+            } else {
+                sociosCache.forEach((socio) => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td class="fw-semibold text-navy">${socio.nombre}</td>
+                        <td class="small text-muted">
+                            ${socio.telefono || "Sin telefono"}<br>
+                            ${socio.correo || "Sin correo"}
+                        </td>
+                        <td class="small text-navy">${socio.porcentajeParticipacion != null ? `${socio.porcentajeParticipacion}%` : "Sin definir"}</td>
+                        <td class="fw-bold text-success">${formatCOP(socio.totalRecibido || 0)}</td>
+                        <td><span class="badge ${socio.activo ? "bg-success" : "bg-secondary"}">${socio.activo ? "ACTIVO" : "INACTIVO"}</span></td>
+                    `;
+                    sociosBody.appendChild(tr);
+                });
+            }
+
+            renderizarFormularioReparto();
+        } catch (error) {
+            console.error(error);
+            sociosBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-danger">
+                        <i class="bi bi-wifi-off fs-4 d-block mb-2"></i> ${error.message || "Error al cargar socios."}
+                    </td>
+                </tr>
+            `;
+            if (error.message && /sesión|Authorization|Bearer|autenticado|permisos/i.test(error.message)) {
+                manejarSesionInvalida(error.message);
+            }
+        }
+    }
+
+    function renderizarFormularioReparto() {
+        const container = document.getElementById("repartoSociosContainer");
+        if (!container) {
+            return;
+        }
+
+        const sociosActivos = sociosCache.filter((socio) => socio.activo);
+        if (sociosActivos.length === 0) {
+            container.innerHTML = `
+                <div class="alert alert-light border text-muted mb-0">
+                    Registre al menos un socio activo para hacer repartos.
+                </div>
+            `;
+            return;
+        }
+
+        container.innerHTML = sociosActivos.map((socio) => `
+            <div class="border rounded-3 p-3 bg-light">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                    <div>
+                        <div class="fw-bold text-navy">${socio.nombre}</div>
+                        <div class="small text-muted">${socio.porcentajeParticipacion != null ? `${socio.porcentajeParticipacion}% participacion` : "Participacion sin definir"}</div>
+                    </div>
+                    <div class="small text-success fw-semibold">Recibido: ${formatCOP(socio.totalRecibido || 0)}</div>
+                </div>
+                <input type="number" class="form-control reparto-monto" data-socio-id="${socio.id}" data-socio-nombre="${socio.nombre}" placeholder="Monto a entregar a ${socio.nombre}">
+            </div>
+        `).join("");
+    }
+
+    // 3. Cargar listado de egresos
+    async function cargarEgresos(fechaInicio = "", fechaFin = "", tipoSalida = "TODOS", rubro = "TODOS") {
+        const tableBody = document.getElementById("egresosTableBody");
+        const resumenBody = document.getElementById("resumenRubrosTableBody");
+        const ingresosBody = document.getElementById("ingresosTableBody");
+        if (!tableBody) return;
+
+        tableBody.innerHTML = `
+            <tr>
+                <td colspan="8" class="text-center py-4 text-muted">
+                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Consultando egresos en Supabase...
+                </td>
+            </tr>
+        `;
+        if (resumenBody) {
+            resumenBody.innerHTML = `
+                <tr>
+                    <td colspan="3" class="text-center py-4 text-muted">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Calculando consolidado por rubro...
+                    </td>
+                </tr>
+            `;
+        }
+        if (ingresosBody) {
+            ingresosBody.innerHTML = `
+                <tr>
+                    <td colspan="6" class="text-center py-4 text-muted">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando ingresos...
+                    </td>
+                </tr>
+            `;
+        }
+
+        try {
             const params = new URLSearchParams();
             if (fechaInicio) params.append("fechaInicio", fechaInicio);
             if (fechaFin) params.append("fechaFin", fechaFin);
-            
-            if (params.toString()) {
-                url += "?" + params.toString();
+            if (tipoSalida && tipoSalida !== "TODOS") params.append("tipoSalida", tipoSalida);
+            if (rubro && rubro !== "TODOS") params.append("rubro", rubro);
+
+            const queryString = params.toString();
+            const [responseHistorial, responseResumen, responseIngresos, responseIngresosResumen] = await Promise.all([
+                fetch(`/api/egresos/liquidar?${queryString}`, {
+                    headers: getAuthHeaders()
+                }),
+                fetch(`/api/egresos/resumen?${queryString}`, {
+                    headers: getAuthHeaders()
+                }),
+                fetch(`/api/ingresos?${queryString}`, {
+                    headers: getAuthHeaders()
+                }),
+                fetch(`/api/ingresos/resumen?${queryString}`, {
+                    headers: getAuthHeaders()
+                })
+            ]);
+
+            const egresos = await parseApiResponse(responseHistorial);
+            const resumen = await parseApiResponse(responseResumen);
+            const ingresos = await parseApiResponse(responseIngresos);
+            const ingresosResumen = await parseApiResponse(responseIngresosResumen);
+
+            if (!responseHistorial.ok) {
+                throw new Error(egresos.error || "No se pudo obtener la liquidación de egresos.");
+            }
+            if (!responseResumen.ok) {
+                throw new Error(resumen.error || "No se pudo obtener el resumen por rubro.");
+            }
+            if (!responseIngresos.ok) {
+                throw new Error(ingresos.error || "No se pudo obtener el registro general de ingresos.");
+            }
+            if (!responseIngresosResumen.ok) {
+                throw new Error(ingresosResumen.error || "No se pudo obtener el resumen de ingresos.");
             }
 
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error("No se pudo obtener la liquidación de egresos.");
-            }
-
-            const egresos = await response.json();
             tableBody.innerHTML = "";
-
-            let totalAcumulado = 0;
 
             if (egresos.length === 0) {
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="5" class="text-center py-4 text-muted">
-                            <i class="bi bi-info-circle fs-4 d-block mb-2"></i> No se encontraron egresos en el rango seleccionado.
+                        <td colspan="8" class="text-center py-4 text-muted">
+                            <i class="bi bi-info-circle fs-4 d-block mb-2"></i> No se encontraron salidas de caja en el filtro seleccionado.
                         </td>
                     </tr>
                 `;
-                document.getElementById("totalEgresosLabel").textContent = formatCOP(0);
-                document.getElementById("cantidadEgresosLabel").textContent = "0 registros";
-                return;
+            } else {
+                egresos.forEach(eg => {
+                    const tr = document.createElement("tr");
+                    tr.className = "animate__animated animate__fadeIn";
+                    tr.innerHTML = `
+                        <td class="fw-bold text-navy">${eg.fecha}</td>
+                        <td><span class="badge ${eg.tipoSalida === 'DISTRIBUCION_SOCIOS' ? 'bg-success' : 'bg-primary'} text-white text-uppercase" style="font-size: 0.75rem;">${eg.tipoSalida}</span></td>
+                        <td><span class="badge bg-navy text-white text-uppercase" style="font-size: 0.75rem;">${eg.rubro}</span></td>
+                        <td class="small text-navy">${eg.beneficiario || "-"}</td>
+                        <td class="small text-muted">${eg.referencia || "-"}</td>
+                        <td class="text-muted small">${eg.descripcion || 'Sin descripción'}</td>
+                        <td class="fw-bold text-danger">${formatCOP(eg.monto)}</td>
+                        <td class="small text-navy"><i class="bi bi-person-circle"></i> ${eg.registradoPor || 'Sistema'}</td>
+                    `;
+                    tableBody.appendChild(tr);
+                });
             }
 
-            egresos.forEach(eg => {
-                totalAcumulado += eg.monto;
-                const tr = document.createElement("tr");
-                tr.className = "animate__animated animate__fadeIn";
-                tr.innerHTML = `
-                    <td class="fw-bold text-navy">${eg.fechaEgreso}</td>
-                    <td><span class="badge bg-navy text-white text-uppercase" style="font-size: 0.75rem;">${eg.rubro}</span></td>
-                    <td class="text-muted small">${eg.descripcion || 'Sin descripción'}</td>
-                    <td class="fw-bold text-danger">${formatCOP(eg.monto)}</td>
-                    <td class="small text-navy"><i class="bi bi-person-circle"></i> ${eg.contador ? eg.contador.nombreCompleto : 'Sistema'}</td>
-                `;
-                tableBody.appendChild(tr);
-            });
+            if (resumenBody) {
+                resumenBody.innerHTML = "";
+                if (!resumen.rubros || resumen.rubros.length === 0) {
+                    resumenBody.innerHTML = `
+                        <tr>
+                            <td colspan="3" class="text-center py-4 text-muted">
+                                <i class="bi bi-info-circle fs-4 d-block mb-2"></i> No hay egresos para consolidar en el rango seleccionado.
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    resumen.rubros.forEach(item => {
+                        const tr = document.createElement("tr");
+                        tr.className = "animate__animated animate__fadeIn";
+                        tr.innerHTML = `
+                            <td><span class="badge bg-navy text-white text-uppercase" style="font-size: 0.8rem;">${item.rubro}</span></td>
+                            <td class="fw-semibold text-navy">${item.cantidad}</td>
+                            <td class="fw-bold text-danger">${formatCOP(item.total)}</td>
+                        `;
+                        resumenBody.appendChild(tr);
+                    });
+                }
+            }
 
-            // Actualizar paneles de resumen
-            document.getElementById("totalEgresosLabel").textContent = formatCOP(totalAcumulado);
-            document.getElementById("cantidadEgresosLabel").textContent = `${egresos.length} registro${egresos.length > 1 ? 's' : ''}`;
+            if (ingresosBody) {
+                ingresosBody.innerHTML = "";
+                if (!ingresos || ingresos.length === 0) {
+                    ingresosBody.innerHTML = `
+                        <tr>
+                            <td colspan="6" class="text-center py-4 text-muted">
+                                <i class="bi bi-info-circle fs-4 d-block mb-2"></i> No hay ingresos en el rango seleccionado.
+                            </td>
+                        </tr>
+                    `;
+                } else {
+                    ingresos.forEach(item => {
+                        const tr = document.createElement("tr");
+                        tr.className = "animate__animated animate__fadeIn";
+                        tr.innerHTML = `
+                            <td class="fw-bold text-navy">${item.fecha}</td>
+                            <td><span class="badge ${item.origen === 'INVERSIONISTA' ? 'bg-success' : 'bg-primary'} text-white text-uppercase" style="font-size: 0.75rem;">${item.origen}</span></td>
+                            <td class="small fw-semibold text-navy">${item.tipo}</td>
+                            <td class="small text-navy">${item.referencia}</td>
+                            <td class="text-muted small">${item.detalle}</td>
+                            <td class="fw-bold text-success">${formatCOP(item.monto)}</td>
+                        `;
+                        ingresosBody.appendChild(tr);
+                    });
+                }
+            }
+
+            document.getElementById("totalEgresosLabel").textContent = formatCOP(resumen.totalEgresos || 0);
+            document.getElementById("cantidadEgresosLabel").textContent = `${resumen.cantidadEgresos || 0} registro${(resumen.cantidadEgresos || 0) !== 1 ? 's' : ''}`;
+            document.getElementById("cantidadRubrosLabel").textContent = `${resumen.cantidadRubros || 0} rubro${(resumen.cantidadRubros || 0) !== 1 ? 's' : ''}`;
+            document.getElementById("rubroMayorLabel").textContent = resumen.rubroMayor ? resumen.rubroMayor.rubro : "Sin datos";
+            document.getElementById("rubroMayorMontoLabel").textContent = formatCOP(resumen.rubroMayor ? resumen.rubroMayor.total : 0);
+            document.getElementById("totalIngresosLabel").textContent = formatCOP(ingresosResumen.totalIngresos || 0);
+            document.getElementById("totalVentasIngresosLabel").textContent = formatCOP(ingresosResumen.totalVentas || 0);
+            document.getElementById("totalInversionistasLabel").textContent = formatCOP(ingresosResumen.totalInversionistas || 0);
+            document.getElementById("saldoCajaLabel").textContent = formatCOP(ingresosResumen.saldoCaja || 0);
+            document.getElementById("totalDistribucionesSociosLabel").textContent = formatCOP(resumen.totalDistribucionesSocios || 0);
 
         } catch (error) {
             console.error(error);
             tableBody.innerHTML = `
                 <tr>
-                    <td colspan="5" class="text-center py-4 text-danger">
-                        <i class="bi bi-wifi-off fs-4 d-block mb-2"></i> Error al conectar con el servidor.
+                    <td colspan="8" class="text-center py-4 text-danger">
+                        <i class="bi bi-wifi-off fs-4 d-block mb-2"></i> ${error.message || "Error al cargar egresos."}
                     </td>
                 </tr>
             `;
+            if (resumenBody) {
+                resumenBody.innerHTML = `
+                    <tr>
+                        <td colspan="3" class="text-center py-4 text-danger">
+                            <i class="bi bi-wifi-off fs-4 d-block mb-2"></i> Error al calcular el consolidado por rubro.
+                        </td>
+                    </tr>
+                `;
+            }
+            if (ingresosBody) {
+                ingresosBody.innerHTML = `
+                    <tr>
+                        <td colspan="6" class="text-center py-4 text-danger">
+                            <i class="bi bi-wifi-off fs-4 d-block mb-2"></i> ${error.message || 'Error al cargar ingresos.'}
+                        </td>
+                    </tr>
+                `;
+            }
+            document.getElementById("totalEgresosLabel").textContent = formatCOP(0);
+            document.getElementById("cantidadEgresosLabel").textContent = "0 registros";
+            document.getElementById("cantidadRubrosLabel").textContent = "0 rubros";
+            document.getElementById("rubroMayorLabel").textContent = "Sin datos";
+            document.getElementById("rubroMayorMontoLabel").textContent = formatCOP(0);
+            document.getElementById("totalIngresosLabel").textContent = formatCOP(0);
+            document.getElementById("totalVentasIngresosLabel").textContent = formatCOP(0);
+            document.getElementById("totalInversionistasLabel").textContent = formatCOP(0);
+            document.getElementById("saldoCajaLabel").textContent = formatCOP(0);
+            document.getElementById("totalDistribucionesSociosLabel").textContent = formatCOP(0);
+            if (error.message && /sesión|Authorization|Bearer|autenticado|permisos/i.test(error.message)) {
+                manejarSesionInvalida(error.message);
+            }
         }
     }
 
     // Cargar inicialmente sin filtros
     cargarEgresos();
+    cargarSocios();
 
     // 4. Formulario de Filtros / Liquidar
     const filtroEgresosForm = document.getElementById("filtroEgresosForm");
@@ -131,12 +412,14 @@ document.addEventListener("DOMContentLoaded", () => {
             e.preventDefault();
             const start = document.getElementById("fechaInicio").value;
             const end = document.getElementById("fechaFin").value;
+            const tipoSalida = document.getElementById("tipoSalida").value;
+            const rubro = document.getElementById("rubroFiltro").value;
             
             if (start && end && start > end) {
                 alert("La fecha de inicio no puede ser posterior a la fecha de fin.");
                 return;
             }
-            cargarEgresos(start, end);
+            cargarEgresos(start, end, tipoSalida, rubro);
         });
     }
 
@@ -145,6 +428,8 @@ document.addEventListener("DOMContentLoaded", () => {
         btnLimpiarFiltros.addEventListener("click", () => {
             document.getElementById("fechaInicio").value = "";
             document.getElementById("fechaFin").value = "";
+            document.getElementById("tipoSalida").value = "TODOS";
+            document.getElementById("rubroFiltro").value = "TODOS";
             cargarEgresos();
         });
     }
@@ -184,11 +469,10 @@ document.addEventListener("DOMContentLoaded", () => {
             try {
                 const response = await fetch("/api/egresos", {
                     method: "POST",
-                    headers: {
+                    headers: getAuthHeaders({
                         "Content-Type": "application/json"
-                    },
+                    }),
                     body: JSON.stringify({
-                        contadorCorreo: user.correo,
                         monto: parseFloat(monto),
                         fechaEgreso: fecha,
                         rubro: rubro,
@@ -196,7 +480,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     })
                 });
 
-                const resData = await response.json();
+                const resData = await parseApiResponse(response);
 
                 if (response.ok) {
                     // Limpieza y cierre
@@ -213,17 +497,229 @@ document.addEventListener("DOMContentLoaded", () => {
                     alert("¡Gasto operativo registrado con éxito!");
                     
                     // Recargar tabla de egresos
-                    cargarEgresos(
-                        document.getElementById("fechaInicio").value,
-                        document.getElementById("fechaFin").value
-                    );
+                    const filtros = obtenerFiltrosActuales();
+                    cargarEgresos(filtros.fechaInicio, filtros.fechaFin, filtros.tipoSalida, filtros.rubro);
                 } else {
+                    if (response.status === 400 && /sesión|Authorization|Bearer|autenticado|permisos/i.test(resData.error || "")) {
+                        manejarSesionInvalida(resData.error);
+                        return;
+                    }
                     alertText.textContent = resData.error || "No se pudo registrar el egreso.";
                     alertDiv.classList.remove("d-none");
                 }
             } catch (err) {
                 console.error(err);
                 alertText.textContent = "Error de red al conectar con el servidor.";
+                alertDiv.classList.remove("d-none");
+            } finally {
+                confirmBtn.disabled = false;
+                spinner.classList.add("d-none");
+            }
+        });
+    }
+
+    const aporteForm = document.getElementById("aporteForm");
+    if (aporteForm) {
+        aporteForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const nombre = document.getElementById("aporteNombre").value.trim();
+            const monto = document.getElementById("aporteMonto").value;
+            const fecha = document.getElementById("aporteFecha").value;
+            const descripcion = document.getElementById("aporteDescripcion").value;
+            const spinner = document.getElementById("aporteSpinner");
+            const confirmBtn = document.getElementById("btnConfirmarAporte");
+            const alertDiv = document.getElementById("aporteAlert");
+            const alertText = document.getElementById("aporteAlertText");
+
+            if (!nombre || !monto || !fecha) {
+                alertText.textContent = "Nombre, monto y fecha del aporte son obligatorios.";
+                alertDiv.classList.remove("d-none");
+                return;
+            }
+
+            spinner.classList.remove("d-none");
+            confirmBtn.disabled = true;
+            alertDiv.classList.add("d-none");
+
+            try {
+                const response = await fetch("/api/ingresos/inversionistas", {
+                    method: "POST",
+                    headers: getAuthHeaders({
+                        "Content-Type": "application/json"
+                    }),
+                    body: JSON.stringify({
+                        nombreInversionista: nombre,
+                        monto: parseFloat(monto),
+                        fechaAporte: fecha,
+                        descripcion: descripcion
+                    })
+                });
+
+                const data = await parseApiResponse(response);
+                if (response.ok) {
+                    if (aporteModal) aporteModal.hide();
+                    aporteForm.reset();
+                    if (aporteFechaInput) {
+                        aporteFechaInput.value = new Date().toISOString().split('T')[0];
+                    }
+                    alert("Aporte de inversionista registrado correctamente.");
+                    const filtros = obtenerFiltrosActuales();
+                    cargarEgresos(filtros.fechaInicio, filtros.fechaFin, filtros.tipoSalida, filtros.rubro);
+                } else {
+                    if (response.status === 400 && /sesión|Authorization|Bearer|autenticado|permisos/i.test(data.error || "")) {
+                        manejarSesionInvalida(data.error);
+                        return;
+                    }
+                    alertText.textContent = data.error || "No se pudo registrar el aporte.";
+                    alertDiv.classList.remove("d-none");
+                }
+            } catch (err) {
+                console.error(err);
+                alertText.textContent = "Error de red al registrar el aporte.";
+                alertDiv.classList.remove("d-none");
+            } finally {
+                confirmBtn.disabled = false;
+                spinner.classList.add("d-none");
+            }
+        });
+    }
+
+    const socioForm = document.getElementById("socioForm");
+    if (socioForm) {
+        socioForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const nombre = document.getElementById("socioNombre").value.trim();
+            const telefono = document.getElementById("socioTelefono").value.trim();
+            const correo = document.getElementById("socioCorreo").value.trim();
+            const porcentajeParticipacion = document.getElementById("socioParticipacion").value;
+            const observaciones = document.getElementById("socioObservaciones").value.trim();
+            const spinner = document.getElementById("socioSpinner");
+            const confirmBtn = document.getElementById("btnConfirmarSocio");
+            const alertDiv = document.getElementById("socioAlert");
+            const alertText = document.getElementById("socioAlertText");
+
+            if (!nombre) {
+                alertText.textContent = "El nombre del socio es obligatorio.";
+                alertDiv.classList.remove("d-none");
+                return;
+            }
+
+            spinner.classList.remove("d-none");
+            confirmBtn.disabled = true;
+            alertDiv.classList.add("d-none");
+
+            try {
+                const response = await fetch("/api/socios", {
+                    method: "POST",
+                    headers: getAuthHeaders({
+                        "Content-Type": "application/json"
+                    }),
+                    body: JSON.stringify({
+                        nombre,
+                        telefono,
+                        correo,
+                        porcentajeParticipacion: porcentajeParticipacion ? parseFloat(porcentajeParticipacion) : null,
+                        observaciones
+                    })
+                });
+
+                const data = await parseApiResponse(response);
+                if (response.ok) {
+                    if (socioModal) socioModal.hide();
+                    socioForm.reset();
+                    await cargarSocios();
+                } else {
+                    if (response.status === 400 && /sesión|Authorization|Bearer|autenticado|permisos/i.test(data.error || "")) {
+                        manejarSesionInvalida(data.error);
+                        return;
+                    }
+                    alertText.textContent = data.error || "No se pudo registrar el socio.";
+                    alertDiv.classList.remove("d-none");
+                }
+            } catch (error) {
+                console.error(error);
+                alertText.textContent = "Error de red al registrar el socio.";
+                alertDiv.classList.remove("d-none");
+            } finally {
+                confirmBtn.disabled = false;
+                spinner.classList.add("d-none");
+            }
+        });
+    }
+
+    const repartoForm = document.getElementById("repartoForm");
+    if (repartoForm) {
+        repartoForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+
+            const fechaDistribucion = document.getElementById("repartoFecha").value;
+            const referencia = document.getElementById("repartoReferencia").value.trim();
+            const descripcion = document.getElementById("repartoDescripcion").value.trim();
+            const spinner = document.getElementById("repartoSpinner");
+            const confirmBtn = document.getElementById("btnConfirmarReparto");
+            const alertDiv = document.getElementById("repartoAlert");
+            const alertText = document.getElementById("repartoAlertText");
+
+            const distribuciones = Array.from(document.querySelectorAll(".reparto-monto"))
+                .map((input) => ({
+                    socioId: input.dataset.socioId,
+                    monto: input.value ? parseFloat(input.value) : 0
+                }))
+                .filter((item) => item.monto > 0);
+
+            if (!fechaDistribucion) {
+                alertText.textContent = "La fecha del reparto es obligatoria.";
+                alertDiv.classList.remove("d-none");
+                return;
+            }
+            if (distribuciones.length === 0) {
+                alertText.textContent = "Debe ingresar al menos un monto para repartir.";
+                alertDiv.classList.remove("d-none");
+                return;
+            }
+
+            spinner.classList.remove("d-none");
+            confirmBtn.disabled = true;
+            alertDiv.classList.add("d-none");
+
+            try {
+                const response = await fetch("/api/distribuciones-socios", {
+                    method: "POST",
+                    headers: getAuthHeaders({
+                        "Content-Type": "application/json"
+                    }),
+                    body: JSON.stringify({
+                        fechaDistribucion,
+                        referencia,
+                        descripcion,
+                        distribuciones
+                    })
+                });
+
+                const data = await parseApiResponse(response);
+                if (response.ok) {
+                    if (repartoModal) repartoModal.hide();
+                    repartoForm.reset();
+                    if (repartoFechaInput) {
+                        repartoFechaInput.value = new Date().toISOString().split('T')[0];
+                    }
+                    await cargarSocios();
+                    const filtros = obtenerFiltrosActuales();
+                    cargarEgresos(filtros.fechaInicio, filtros.fechaFin, filtros.tipoSalida, filtros.rubro);
+                    alert(`Reparto registrado por ${formatCOP(data.totalDistribuido || 0)}.`);
+                } else {
+                    if (response.status === 400 && /sesión|Authorization|Bearer|autenticado|permisos/i.test(data.error || "")) {
+                        manejarSesionInvalida(data.error);
+                        return;
+                    }
+                    alertText.textContent = data.error || "No se pudo registrar el reparto.";
+                    alertDiv.classList.remove("d-none");
+                }
+            } catch (error) {
+                console.error(error);
+                alertText.textContent = "Error de red al registrar el reparto.";
                 alertDiv.classList.remove("d-none");
             } finally {
                 confirmBtn.disabled = false;
@@ -241,13 +737,14 @@ document.addEventListener("DOMContentLoaded", () => {
                 resetBtn.innerHTML = `<span class="spinner-border spinner-border-sm" role="status"></span> Restableciendo...`;
                 try {
                     const response = await fetch("/api/test/reset", {
-                        method: "POST"
+                        method: "POST",
+                        headers: getAuthHeaders()
                     });
                     if (response.ok) {
                         alert("Base de datos restablecida exitosamente.");
                         window.location.reload();
                     } else {
-                        const data = await response.json();
+                        const data = await parseApiResponse(response);
                         alert("Error al restablecer base de datos: " + (data.error || "Error desconocido"));
                         resetBtn.disabled = false;
                         resetBtn.innerHTML = `<i class="bi bi-arrow-clockwise"></i> Restablecer BD`;

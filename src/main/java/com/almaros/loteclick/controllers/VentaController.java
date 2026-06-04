@@ -2,6 +2,7 @@ package com.almaros.loteclick.controllers;
 
 import com.almaros.loteclick.models.Comprador;
 import com.almaros.loteclick.models.CuotaAmortizacion;
+import com.almaros.loteclick.models.Usuario;
 import com.almaros.loteclick.models.VentaContrato;
 import com.almaros.loteclick.models.PagoIngreso;
 import com.almaros.loteclick.repositories.CompradorRepository;
@@ -50,9 +51,9 @@ public class VentaController {
      */
     @PostMapping("/ventas")
     public ResponseEntity<?> registrarVenta(
+            @RequestHeader("Authorization") String authorizationHeader,
             @RequestParam("loteId") UUID loteId,
             @RequestParam("compradorId") UUID compradorId,
-            @RequestParam("vendedorCorreo") String vendedorCorreo,
             @RequestParam("precioVentaPactado") BigDecimal precioVentaPactado,
             @RequestParam("cuotaSeparacion") BigDecimal cuotaSeparacion,
             @RequestParam("plazoMeses") Integer plazoMeses,
@@ -60,6 +61,11 @@ public class VentaController {
             @RequestParam(value = "documentoPropiedad", required = false) MultipartFile documentoPropiedad) {
 
         try {
+            Usuario usuario = sessionService.obtenerUsuarioAutenticado(
+                    authorizationHeader,
+                    List.of("VENDEDOR", "ADMINISTRADOR"),
+                    "No tiene permisos para registrar ventas."
+            );
             // Validaciones básicas de negocio
             if (precioVentaPactado.compareTo(cuotaSeparacion) < 0) {
                 return ResponseEntity.badRequest().body(Map.of("error", "La cuota de separación no puede ser superior al precio total pactado."));
@@ -82,7 +88,7 @@ public class VentaController {
             }
 
             VentaContrato contrato = ventaService.registrarVenta(
-                    loteId, compradorId, vendedorCorreo, 
+                    loteId, compradorId, usuario.getCorreo(),
                     precioVentaPactado, cuotaSeparacion, 
                     plazoMeses, fechaVenta, documentoPropiedad
             );
@@ -107,9 +113,17 @@ public class VentaController {
      * Endpoint: GET /api/clientes/{cedula}/estado-cuenta
      */
     @GetMapping("/clientes/{cedula}/estado-cuenta")
-    public ResponseEntity<?> obtenerEstadoCuenta(@PathVariable String cedula) {
+    public ResponseEntity<?> obtenerEstadoCuenta(@RequestHeader("Authorization") String authorizationHeader,
+                                                 @PathVariable String cedula) {
         if (cedula == null || cedula.trim().isEmpty()) {
             return ResponseEntity.badRequest().body(Map.of("error", "La cédula es requerida"));
+        }
+
+        try {
+            sessionService.obtenerUsuarioAutenticado(authorizationHeader, List.of("VENDEDOR", "CONTADOR", "ADMINISTRADOR"),
+                    "No tiene permisos para consultar estados de cuenta.");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         }
 
         Optional<Comprador> compradorOpt = compradorRepository.findByCedula(cedula.trim());

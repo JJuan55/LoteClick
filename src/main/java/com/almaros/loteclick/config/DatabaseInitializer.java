@@ -15,6 +15,9 @@ import com.almaros.loteclick.repositories.LoteRepository;
 import com.almaros.loteclick.repositories.CompradorRepository;
 import com.almaros.loteclick.repositories.VentaContratoRepository;
 import com.almaros.loteclick.repositories.CuotaAmortizacionRepository;
+import com.almaros.loteclick.repositories.AporteInversionistaRepository;
+import com.almaros.loteclick.repositories.DistribucionSocioRepository;
+import com.almaros.loteclick.repositories.SocioProyectoRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.security.crypto.bcrypt.BCrypt;
@@ -55,11 +58,13 @@ public class DatabaseInitializer implements CommandLineRunner {
     private CuotaAmortizacionRepository cuotaAmortizacionRepository;
 
     @Autowired
-    private com.almaros.loteclick.services.StorageService storageService;
+    private AporteInversionistaRepository aporteInversionistaRepository;
 
     @Autowired
-    private com.almaros.loteclick.repositories.PagoIngresoRepository pagoIngresoRepository;
+    private SocioProyectoRepository socioProyectoRepository;
 
+    @Autowired
+    private DistribucionSocioRepository distribucionSocioRepository;
 
 
     @Override
@@ -171,6 +176,8 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         // 5. Sembrar compradores y contratos de prueba para el test de multi-propiedad
         sembrarCompradoresYContratosDePrueba(etapa1, etapa2, etapa3);
+        sembrarAportesInversionistasDePrueba();
+        sembrarSociosYDistribucionesDePrueba();
     }
 
     private void sembrarCompradoresYContratosDePrueba(Etapa etapa1, Etapa etapa2, Etapa etapa3) {
@@ -320,6 +327,64 @@ public class DatabaseInitializer implements CommandLineRunner {
         }
     }
 
+    private void sembrarAportesInversionistasDePrueba() {
+        if (aporteInversionistaRepository.count() > 0) return;
+
+        Usuario admin = usuarioRepository.findByCorreo("admin@almaros.com").orElse(null);
+        if (admin == null) return;
+
+        AporteInversionista aporte1 = new AporteInversionista();
+        aporte1.setNombreInversionista("Socio Capital Norte");
+        aporte1.setMonto(BigDecimal.valueOf(45000000L));
+        aporte1.setFechaAporte(LocalDate.now().minusMonths(3));
+        aporte1.setDescripcion("Capital inicial para apertura de vías internas.");
+        aporte1.setRegistradoPor(admin);
+
+        AporteInversionista aporte2 = new AporteInversionista();
+        aporte2.setNombreInversionista("Fondo Inmobiliario Andes");
+        aporte2.setMonto(BigDecimal.valueOf(30000000L));
+        aporte2.setFechaAporte(LocalDate.now().minusMonths(1));
+        aporte2.setDescripcion("Refuerzo de caja para urbanismo y servicios.");
+        aporte2.setRegistradoPor(admin);
+
+        aporteInversionistaRepository.saveAll(List.of(aporte1, aporte2));
+    }
+
+    private void sembrarSociosYDistribucionesDePrueba() {
+        Usuario admin = usuarioRepository.findByCorreo("admin@almaros.com").orElse(null);
+        if (admin == null) return;
+
+        if (socioProyectoRepository.count() == 0) {
+            SocioProyecto socio1 = new SocioProyecto(null, "Socio 1", "3001112233", "socio1@almaros.com",
+                    BigDecimal.valueOf(25), true, "Participacion fundadora");
+            SocioProyecto socio2 = new SocioProyecto(null, "Socio 2", "3001112244", "socio2@almaros.com",
+                    BigDecimal.valueOf(25), true, "Participacion fundadora");
+            SocioProyecto socio3 = new SocioProyecto(null, "Socio 3", "3001112255", "socio3@almaros.com",
+                    BigDecimal.valueOf(25), true, "Participacion fundadora");
+            SocioProyecto socio4 = new SocioProyecto(null, "Socio 4", "3001112266", "socio4@almaros.com",
+                    BigDecimal.valueOf(25), true, "Participacion fundadora");
+            socioProyectoRepository.saveAll(List.of(socio1, socio2, socio3, socio4));
+        }
+
+        if (distribucionSocioRepository.count() == 0) {
+            List<SocioProyecto> socios = socioProyectoRepository.findAllByActivoTrueOrderByNombreAsc();
+            if (socios.size() >= 3) {
+                List<DistribucionSocio> distribuciones = new ArrayList<>();
+                for (int i = 0; i < 3; i++) {
+                    DistribucionSocio distribucion = new DistribucionSocio();
+                    distribucion.setSocio(socios.get(i));
+                    distribucion.setRegistradoPor(admin);
+                    distribucion.setMonto(BigDecimal.valueOf(5000000L));
+                    distribucion.setFechaDistribucion(LocalDate.now().minusDays(20));
+                    distribucion.setReferencia("Venta Lote 13 - abono inicial");
+                    distribucion.setDescripcion("Distribucion parcial de recaudo a socios");
+                    distribuciones.add(distribucion);
+                }
+                distribucionSocioRepository.saveAll(distribuciones);
+            }
+        }
+    }
+
 
     private Role registrarRolSiNoExiste(String nombreRol) {
         Optional<Role> roleOpt = rolRepository.findByNombreRol(nombreRol);
@@ -341,4 +406,3 @@ public class DatabaseInitializer implements CommandLineRunner {
         return etapaOpt.get();
     }
 }
-
