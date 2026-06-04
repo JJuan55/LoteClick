@@ -53,6 +53,21 @@ El Comprador en el sistema será una entidad pasiva (un registro en la base de d
 
 ## 4. Implementación Detallada de los Casos de Uso
 
+### Extensiones Implementadas Fuera del Diseño Inicial
+
+Durante la implementación real del proyecto se incorporaron varias capacidades que no estaban descritas de forma explícita en el diseño base, especialmente alrededor del rol **Contador** y del control de caja:
+
+* **Sesión de Backend con Token de Acceso:** La autenticación ya no depende solo de redirección por rol en frontend. El login emite un token de sesión opaco y las vistas internas consumen los endpoints con `Authorization: Bearer ...`.
+* **Control de Roles Aplicado en Backend:** Las restricciones de acceso ya no son únicamente visuales. Se validan permisos en controladores para pagos, egresos, dashboard, lotes, compradores, ventas, consulta de cartera, registro de socios y distribuciones.
+* **Registro General de Ingresos en la Vista del Contador:** Además de los pagos de cartera, la vista del contador consolida cuota de separación, pagos mensuales y aportes de inversionistas dentro de un mismo histórico financiero.
+* **Aportes de Inversionistas Operados por Contador/Administrador:** Se añadió la posibilidad de registrar aportes extraordinarios al proyecto desde la misma vista financiera, afectando el cálculo de caja disponible.
+* **Caja Disponible como Indicador Operativo:** Se implementó el cálculo `total de ingresos - total de salidas de caja`, donde las salidas incluyen egresos operativos y distribuciones a socios.
+* **Liquidación de Caja con Filtros Ampliados:** La consulta de egresos evolucionó a una liquidación unificada de salidas de caja filtrable por rango de fechas, tipo de salida y rubro.
+* **Módulo Operativo de Socios del Proyecto:** Se agregó un flujo no contemplado de forma detallada en el diseño inicial para registrar socios del proyecto, consultar el acumulado entregado a cada uno y registrar distribuciones manuales de dinero por venta o recaudo.
+* **Distribuciones a Socios Separadas de Egresos Operativos:** Un reparto a socios no se registra como gasto operativo común. Se modela como una salida de caja independiente (`DISTRIBUCION_SOCIOS`) para no mezclar costos del proyecto con repartos de utilidad o caja.
+
+Estas extensiones deben entenderse como una ampliación funcional del alcance del **CU06**, **CU07**, **CU08** y **CU09**, aunque varias de ellas responden a decisiones de implementación tomadas después del documento original.
+
 ### Módulo 0: Autenticación y Control de Accesos
 
 #### CU01: Autenticación de Usuario (Login)
@@ -172,6 +187,31 @@ El Comprador en el sistema será una entidad pasiva (un registro en la base de d
   1. El sistema computa los egresos en Supabase y renderiza una tabla acumulada por rubros operativos (ej: Total Maquinaria: $X USD, Total Excavación: $Y USD)[cite: 3].
   2. Permite exportar la vista o desgolsar cada rubro para ver los detalles individuales de facturas y descripciones de gastos registrados[cite: 3].
 
+#### CU07A: Visualizar Flujo de Caja Consolidado
+* **Actor:** Contador o Administrador.
+* **Descripción:** Permite visualizar en una sola pantalla los ingresos del proyecto, las salidas de caja y el saldo disponible del negocio.
+* **Flujo Paso a Paso:**
+  1. El usuario ingresa a la Ventana de Flujo de Caja.
+  2. El sistema carga los ingresos por cuotas de separación, pagos de compradores y aportes de inversionistas.
+  3. El sistema carga las salidas de caja, separando egresos operativos y distribuciones a socios.
+  4. El usuario puede aplicar filtros por fecha, tipo de salida y rubro.
+* **Respuesta del Sistema (Caso Exitoso):**
+  1. Se muestran indicadores de Total Ingresos, Ingresos por Ventas, Aportes de Inversionistas, Total Salidas y Caja Disponible.
+  2. Se despliega un histórico cronológico de movimientos y una tabla consolidada por rubro.
+
+#### CU07B: Registrar Distribución de Caja a Socios
+* **Actor:** Contador o Administrador.
+* **Descripción:** Permite registrar repartos manuales de dinero entregados a socios del proyecto como consecuencia de una venta, un abono o una decisión de caja.
+* **Flujo Paso a Paso:**
+  1. El usuario abre el modal de reparto a socios.
+  2. Define fecha, referencia operativa y descripción del reparto.
+  3. Ingresa montos individuales por socio. Un socio puede recibir `0` en un reparto determinado.
+  4. Confirma el registro.
+* **Respuesta del Sistema (Caso Exitoso):**
+  1. El backend guarda una distribución individual por cada socio con monto superior a cero.
+  2. El sistema actualiza el total acumulado recibido por socio.
+  3. El monto distribuido afecta el cálculo de caja disponible y aparece en el historial de salidas bajo el tipo `DISTRIBUCION_SOCIOS`.
+
 ### Módulo 4: Alta Dirección y Analítica Financiera
 
 #### CU08: Visualizar Cuadro de Mando Financiero (Dashboard)
@@ -186,6 +226,7 @@ El Comprador en el sistema será una entidad pasiva (un registro en la base de d
      * **Pendiente de Recaudo:** La diferencia matemática que falta por cobrar a los clientes para completar el proyecto[cite: 3].
      * **Utilidad Neta:** Cálculo automático restando el consolidado de egresos por rubros del total recaudado real[cite: 3].
   2. Adicionalmente, dibuja una tabla comparativa mensual de Ingresos vs Egresos (reproduciendo fielmente la estructura visual de tu imagen de Excel)[cite: 3].
+  3. En la implementación actual también se expone el indicador de **Caja Disponible** y el valor total **Distribuido a Socios** como extensiones operativas del tablero financiero.
 
 #### CU09: Gestionar Aportes de Socios
 * **Actor:** Exclusivo Administrador[cite: 3].
@@ -198,6 +239,13 @@ El Comprador en el sistema será una entidad pasiva (un registro en la base de d
   1. El backend registra el nuevo aporte en el histórico del socio[cite: 3].
   2. Recalcula instantáneamente el fondo común de aportes y actualiza de manera automática la Participación Porcentual de cada uno de los inversionistas del proyecto frente al nuevo total de capital inyectado[cite: 3].
   3. La pantalla se actualiza refrescando la tabla de socios con los nuevos valores y porcentajes calculados matemáticamente[cite: 3].
+
+**Nota de Implementación Actual:**
+En la versión implementada hasta ahora, el sistema diferencia dos conceptos que el diseño original trataba de forma cercana pero no separaba del todo:
+* **Aportes de Inversionistas:** Entradas de dinero al proyecto.
+* **Distribuciones a Socios:** Salidas de dinero desde la caja del proyecto.
+
+Además, la operación de socios hoy está disponible también para el rol **Contador** con fines operativos, no solo para el Administrador.
 
 ---
 
@@ -221,6 +269,11 @@ El Comprador en el sistema será una entidad pasiva (un registro en la base de d
 | **RF13** | KPIs en Tiempo Real | Calcular en tiempo real: Ventas Efectivas, Recaudado, Pendiente y Utilidad Neta[cite: 3]. | CU08[cite: 3] |
 | **RF14** | Participación de Socios | Registrar aportes e inyecciones calculando la participación porcentual sobre utilidades[cite: 3]. | CU09[cite: 3] |
 | **RF15** | Log de Auditoría Interna | Registrar automáticamente en bitácora inalterable qué usuario hizo cada acción financiera[cite: 3]. | Todos[cite: 3] |
+| **RF16** | Caja Disponible | Calcular el saldo actual de caja restando las salidas de caja al total de ingresos del proyecto. | CU07A / CU08 |
+| **RF17** | Ingresos de Inversionistas | Registrar y listar aportes extraordinarios de inversionistas dentro del flujo general de ingresos. | CU07A / CU09 |
+| **RF18** | Distribución de Caja a Socios | Registrar repartos manuales por socio sin mezclarlos con egresos operativos. | CU07B |
+| **RF19** | Filtros Avanzados de Salidas | Filtrar la liquidación de caja por fecha, rubro y tipo de salida. | CU07 / CU07A |
+| **RF20** | Sesión con Token de Backend | Exigir token de sesión para consumir endpoints internos y validar roles desde backend. | CU01 |
 
 ### B. Requerimientos No Funcionales (RNF)
 * **RNF01 (Seguridad):** Las contraseñas de los usuarios deben ser almacenadas en la base de datos utilizando algoritmos de encriptación hash seguros (ej: BCrypt en Spring Boot)[cite: 3].
