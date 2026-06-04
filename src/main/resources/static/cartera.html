@@ -357,13 +357,23 @@
                             </div>
 
                             <!-- Documentos Descargables -->
-                            <div class="d-flex flex-wrap gap-2 mt-4">
-                                <a id="btnDescargarContrato" href="#" target="_blank" class="btn btn-navy text-white fw-bold p-2.5 rounded-3">
-                                    <i class="bi bi-file-earmark-text-fill text-warning"></i> Ver Contrato Digital
-                                </a>
-                                <a id="btnDescargarPropiedad" href="#" target="_blank" class="btn btn-light fw-bold p-2.5 rounded-3 border">
-                                    <i class="bi bi-file-earmark-image-fill text-success"></i> Ver Título de Propiedad
-                                </a>
+                            <div class="d-flex flex-wrap gap-3 mt-4">
+                                <div class="btn-group" role="group">
+                                    <a id="btnVerContrato" href="#" target="_blank" class="btn btn-navy text-white fw-bold p-2.5">
+                                        <i class="bi bi-file-earmark-pdf-fill text-warning"></i> Ver Contrato Digital
+                                    </a>
+                                    <a id="btnDescargarContrato" href="#" class="btn btn-outline-navy fw-bold p-2.5" title="Descargar Contrato PDF">
+                                        <i class="bi bi-download"></i> Descargar
+                                    </a>
+                                </div>
+                                <div class="btn-group" role="group">
+                                    <a id="btnVerPropiedad" href="#" target="_blank" class="btn btn-light fw-bold p-2.5 border">
+                                        <i class="bi bi-file-earmark-pdf-fill text-success"></i> Ver Título de Propiedad
+                                    </a>
+                                    <a id="btnDescargarPropiedad" href="#" class="btn btn-outline-secondary fw-bold p-2.5" title="Descargar Título de Propiedad PDF">
+                                        <i class="bi bi-download"></i> Descargar
+                                    </a>
+                                </div>
                             </div>
                         </div>
                     </div>
@@ -388,6 +398,7 @@
                                     <th scope="col" style="color: var(--color-navy); font-weight: 600;">Monto de Cuota</th>
                                     <th scope="col" style="color: var(--color-navy); font-weight: 600;">Fecha de Vencimiento</th>
                                     <th scope="col" style="color: var(--color-navy); font-weight: 600;">Estado de Pago</th>
+                                    <th scope="col" class="text-center" style="color: var(--color-navy); font-weight: 600;">Recibo</th>
                                     <th scope="col" class="text-center" style="color: var(--color-navy); font-weight: 600;">Acciones</th>
                                 </tr>
                             </thead>
@@ -571,23 +582,33 @@
                                 document.getElementById("contratoPlazo").textContent = `${contrato.plazoMeses} meses`;
                                 document.getElementById("contratoFecha").textContent = contrato.fechaVenta;
 
-                                // Configurar botones de descarga
-                                const cBtn = document.getElementById("btnDescargarContrato");
+                                // Configurar botones de descarga/ver
+                                const cvBtn = document.getElementById("btnVerContrato");
+                                const cdBtn = document.getElementById("btnDescargarContrato");
                                 if (contrato.urlPdfContrato) {
-                                    cBtn.href = contrato.urlPdfContrato;
-                                    cBtn.classList.remove("disabled");
+                                    cvBtn.href = `/api/documentos/descargar?url=${encodeURIComponent(contrato.urlPdfContrato)}&download=false`;
+                                    cvBtn.classList.remove("disabled");
+                                    cdBtn.href = `/api/documentos/descargar?url=${encodeURIComponent(contrato.urlPdfContrato)}&download=true`;
+                                    cdBtn.classList.remove("disabled");
                                 } else {
-                                    cBtn.removeAttribute("href");
-                                    cBtn.classList.add("disabled");
+                                    cvBtn.removeAttribute("href");
+                                    cvBtn.classList.add("disabled");
+                                    cdBtn.removeAttribute("href");
+                                    cdBtn.classList.add("disabled");
                                 }
 
-                                const pBtn = document.getElementById("btnDescargarPropiedad");
+                                const pvBtn = document.getElementById("btnVerPropiedad");
+                                const pdBtn = document.getElementById("btnDescargarPropiedad");
                                 if (contrato.urlPdfPropiedad) {
-                                    pBtn.href = contrato.urlPdfPropiedad;
-                                    pBtn.classList.remove("disabled");
+                                    pvBtn.href = `/api/documentos/descargar?url=${encodeURIComponent(contrato.urlPdfPropiedad)}&download=false`;
+                                    pvBtn.classList.remove("disabled");
+                                    pdBtn.href = `/api/documentos/descargar?url=${encodeURIComponent(contrato.urlPdfPropiedad)}&download=true`;
+                                    pdBtn.classList.remove("disabled");
                                 } else {
-                                    pBtn.removeAttribute("href");
-                                    pBtn.classList.add("disabled");
+                                    pvBtn.removeAttribute("href");
+                                    pvBtn.classList.add("disabled");
+                                    pdBtn.removeAttribute("href");
+                                    pdBtn.classList.add("disabled");
                                 }
 
                                 // Rellenar tabla de cuotas
@@ -607,11 +628,28 @@
                                         textClass = "VENCIDA";
                                     }
 
+                                    let reciboHtml = '<span class="text-muted small">—</span>';
+                                    if (cuota.estadoPago === "PAGADA" && cuota.urlPdfRecibo) {
+                                        const urlVer = `/api/documentos/descargar?url=${encodeURIComponent(cuota.urlPdfRecibo)}&download=false`;
+                                        const urlDescargar = `/api/documentos/descargar?url=${encodeURIComponent(cuota.urlPdfRecibo)}&download=true`;
+                                        reciboHtml = `
+                                            <div class="btn-group btn-group-sm" role="group">
+                                                <a href="${urlVer}" target="_blank" class="btn btn-outline-navy fw-semibold" title="Ver Recibo PDF">
+                                                    <i class="bi bi-file-earmark-pdf-fill text-danger"></i> Ver
+                                                </a>
+                                                <a href="${urlDescargar}" class="btn btn-outline-secondary fw-semibold" title="Descargar Recibo PDF">
+                                                    <i class="bi bi-download"></i> Descargar
+                                                </a>
+                                            </div>
+                                        `;
+                                    }
+
                                     tr.innerHTML = `
                                         <td class="fw-bold text-navy">Cuota ${cuota.numeroCuota}</td>
                                         <td class="fw-semibold">${formatCOP(cuota.montoCuota)}</td>
                                         <td>${cuota.fechaVencimiento}</td>
                                         <td><span class="badge px-3 py-2 fs-6 rounded-pill ${badgeClass}">${textClass}</span></td>
+                                        <td class="text-center">${reciboHtml}</td>
                                         <td class="text-center">
                                             <button class="btn btn-sm btn-outline-navy fw-semibold btn-pago-cuota" ${cuota.estadoPago === 'PAGADA' ? 'disabled' : ''}>
                                                 <i class="bi bi-cash-coin"></i> Abonar
@@ -730,7 +768,7 @@
                         
                         // Abrir recibo en nueva pestaña
                         if (resData.urlPdfRecibo) {
-                            window.open(resData.urlPdfRecibo, '_blank');
+                            window.open(`/api/documentos/descargar?url=${encodeURIComponent(resData.urlPdfRecibo)}&download=false`, '_blank');
                         }
                         
                         // Recargar estado de cuenta
