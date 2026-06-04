@@ -7,6 +7,7 @@ import com.almaros.loteclick.models.Lote;
 import com.almaros.loteclick.models.Comprador;
 import com.almaros.loteclick.models.VentaContrato;
 import com.almaros.loteclick.models.CuotaAmortizacion;
+import com.almaros.loteclick.models.PagoIngreso;
 import com.almaros.loteclick.repositories.RolRepository;
 import com.almaros.loteclick.repositories.UsuarioRepository;
 import com.almaros.loteclick.repositories.EtapaRepository;
@@ -52,6 +53,13 @@ public class DatabaseInitializer implements CommandLineRunner {
 
     @Autowired
     private CuotaAmortizacionRepository cuotaAmortizacionRepository;
+
+    @Autowired
+    private com.almaros.loteclick.services.StorageService storageService;
+
+    @Autowired
+    private com.almaros.loteclick.repositories.PagoIngresoRepository pagoIngresoRepository;
+
 
 
     @Override
@@ -119,7 +127,7 @@ public class DatabaseInitializer implements CommandLineRunner {
         List<Lote> lotesParaGuardar = new ArrayList<>();
 
         for (Etapa et : etapas) {
-            int cantidadLotes = 18; // 18 lotes por etapa (72 lotes en total)
+            int cantidadLotes = 23; // 23 lotes por etapa (92 lotes en total, 5 nuevos DISPONIBLES)
             for (int i = 1; i <= cantidadLotes; i++) {
                 Optional<Lote> loteExistenteOpt = loteRepository.findByNumeroLoteAndEtapaId(i, et.getId());
                 Lote lote;
@@ -131,13 +139,15 @@ public class DatabaseInitializer implements CommandLineRunner {
                     lote.setEtapa(et);
                     
                     // Asignar estado por defecto a los nuevos lotes de prueba
-                    // 1-12 disponibles, 13-15 separados, 16-18 vendidos
+                    // 1-12 disponibles, 13-15 separados, 16-18 vendidos, 19-23 disponibles
                     if (i <= 12) {
                         lote.setEstado("DISPONIBLE");
                     } else if (i <= 15) {
                         lote.setEstado("SEPARADO");
-                    } else {
+                    } else if (i <= 18) {
                         lote.setEstado("VENDIDO");
+                    } else {
+                        lote.setEstado("DISPONIBLE");
                     }
                 }
 
@@ -226,8 +236,33 @@ public class DatabaseInitializer implements CommandLineRunner {
             contrato.setCuotaSeparacion(separacion);
             contrato.setPlazoMeses(plazo);
             contrato.setFechaVenta(LocalDate.now().minusMonths(2));
-            contrato.setUrlPdfContrato("/uploads/contrato_test_lote_" + numeroLote + "_" + etapa.getNombreEtapa().replace(" ", "") + ".txt");
-            contrato.setUrlPdfPropiedad("/uploads/propiedad_test_lote_" + numeroLote + "_" + etapa.getNombreEtapa().replace(" ", "") + ".pdf");
+            
+            // Generar los PDFs reales
+            try {
+                String urlContrato = storageService.generarContratoPdfSimulado(
+                        String.valueOf(numeroLote),
+                        etapa.getNombreEtapa(),
+                        comprador.getNombre(),
+                        comprador.getCedula(),
+                        lote.getPrecioBase().toString(),
+                        separacion.toString(),
+                        plazo
+                );
+                contrato.setUrlPdfContrato(urlContrato);
+
+                String urlPropiedad = storageService.generarTituloPropiedadPdfSimulado(
+                        String.valueOf(numeroLote),
+                        etapa.getNombreEtapa(),
+                        comprador.getNombre(),
+                        comprador.getCedula()
+                );
+                contrato.setUrlPdfPropiedad(urlPropiedad);
+            } catch (Exception e) {
+                e.printStackTrace();
+                // Fallback in case of error
+                contrato.setUrlPdfContrato("/uploads/contrato_test_lote_" + numeroLote + "_" + etapa.getNombreEtapa().replace(" ", "") + ".pdf");
+                contrato.setUrlPdfPropiedad("/uploads/propiedad_test_lote_" + numeroLote + "_" + etapa.getNombreEtapa().replace(" ", "") + ".pdf");
+            }
             
             VentaContrato guardado = ventaContratoRepository.save(contrato);
 
@@ -250,9 +285,38 @@ public class DatabaseInitializer implements CommandLineRunner {
                 } else {
                     cuota.setEstadoPago("PENDIENTE");
                 }
-                cuotas.add(cuota);
+                
+                cuota = cuotaAmortizacionRepository.save(cuota);
+                
+                // Si la cuota está pagada, crear el recibo y el PagoIngreso
+                if ("PAGADA".equals(cuota.getEstadoPago())) {
+                    PagoIngreso pago = new PagoIngreso();
+                    pago.setCuota(cuota);
+                    pago.setVenta(guardado);
+                    pago.setUsuario(vendedor);
+                    pago.setMontoPagado(montoCuota);
+                    pago.setFechaPago(contrato.getFechaVenta().plusMonths(i).atStartOfDay());
+                    pago.setConcepto("Abono de cuota " + i + " - Semilla");
+                    
+                    try {
+                        String numRecibo = "RC-" + String.format("%05d", (int)(Math.random() * 100000));
+                        String urlRecibo = storageService.generarReciboPdfSimulado(
+                            numRecibo,
+                            lote.getNumeroLote().toString(),
+                            comprador.getNombre(),
+                            comprador.getCedula(),
+                            montoCuota.toString(),
+                            pago.getConcepto(),
+                            vendedor.getNombreCompleto()
+                        );
+                        pago.setUrlPdfRecibo(urlRecibo);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                    
+                    pagoIngresoRepository.save(pago);
+                }
             }
-            cuotaAmortizacionRepository.saveAll(cuotas);
         }
     }
 

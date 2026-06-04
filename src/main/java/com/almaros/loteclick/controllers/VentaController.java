@@ -3,9 +3,11 @@ package com.almaros.loteclick.controllers;
 import com.almaros.loteclick.models.Comprador;
 import com.almaros.loteclick.models.CuotaAmortizacion;
 import com.almaros.loteclick.models.VentaContrato;
+import com.almaros.loteclick.models.PagoIngreso;
 import com.almaros.loteclick.repositories.CompradorRepository;
 import com.almaros.loteclick.repositories.CuotaAmortizacionRepository;
 import com.almaros.loteclick.repositories.VentaContratoRepository;
+import com.almaros.loteclick.repositories.PagoIngresoRepository;
 import com.almaros.loteclick.services.VentaService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.format.annotation.DateTimeFormat;
@@ -38,6 +40,9 @@ public class VentaController {
 
     @Autowired
     private CuotaAmortizacionRepository cuotaAmortizacionRepository;
+
+    @Autowired
+    private PagoIngresoRepository pagoIngresoRepository;
 
     /**
      * Endpoint para registrar una nueva venta con su archivo binario (Multipart).
@@ -121,6 +126,25 @@ public class VentaController {
         for (VentaContrato c : contratos) {
             List<CuotaAmortizacion> cuotas = cuotaAmortizacionRepository.findByVentaIdOrderByNumeroCuotaAsc(c.getId());
             
+            List<Map<String, Object>> cuotasConRecibo = new ArrayList<>();
+            for (CuotaAmortizacion cuota : cuotas) {
+                Map<String, Object> mapCuota = new HashMap<>();
+                mapCuota.put("id", cuota.getId());
+                mapCuota.put("numeroCuota", cuota.getNumeroCuota());
+                mapCuota.put("montoCuota", cuota.getMontoCuota());
+                mapCuota.put("fechaVencimiento", cuota.getFechaVencimiento());
+                mapCuota.put("estadoPago", cuota.getEstadoPago());
+                
+                // Buscar si existe un recibo de pago para esta cuota
+                List<PagoIngreso> pagos = pagoIngresoRepository.findByCuotaId(cuota.getId());
+                if (!pagos.isEmpty()) {
+                    mapCuota.put("urlPdfRecibo", pagos.get(0).getUrlPdfRecibo());
+                } else {
+                    mapCuota.put("urlPdfRecibo", null);
+                }
+                cuotasConRecibo.add(mapCuota);
+            }
+            
             Map<String, Object> mapContrato = new HashMap<>();
             mapContrato.put("id", c.getId());
             mapContrato.put("lote", c.getLote());
@@ -130,7 +154,7 @@ public class VentaController {
             mapContrato.put("fechaVenta", c.getFechaVenta());
             mapContrato.put("urlPdfContrato", c.getUrlPdfContrato());
             mapContrato.put("urlPdfPropiedad", c.getUrlPdfPropiedad());
-            mapContrato.put("cuotas", cuotas);
+            mapContrato.put("cuotas", cuotasConRecibo);
 
             contratosConCuotas.add(mapContrato);
         }
