@@ -25,6 +25,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 document.getElementById("menuSocios").style.display = "block";
             }
         } else if (user.rol === "CONTADOR") {
+            if (document.getElementById("menuDashboard")) {
+                document.getElementById("menuDashboard").style.display = "block";
+            }
             if (document.getElementById("menuSocios")) {
                 document.getElementById("menuSocios").style.display = "block";
             }

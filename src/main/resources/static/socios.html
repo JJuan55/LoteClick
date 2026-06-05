@@ -450,7 +450,6 @@
             if (user) {
                 document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (${user.rol})`;
                 if (user.rol === "CONTADOR") {
-                    document.getElementById("menuDashboard").style.display = "none";
                     document.getElementById("menuLotes").style.display = "none";
                     document.getElementById("menuVentas").style.display = "none";
                     document.getElementById("menuPersonal").style.display = "none";

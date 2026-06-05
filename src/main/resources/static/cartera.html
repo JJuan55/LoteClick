@@ -239,7 +239,7 @@
             <li class="menu-item" id="menuDashboard" style="display: none;">
                 <a href="dashboard.html"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
             </li>
-            <li class="menu-item">
+            <li class="menu-item" id="menuLotes">
                 <a href="inventario.html"><i class="bi bi-map-fill"></i> Inventario Lotes</a>
             </li>
             <li class="menu-item active">
@@ -507,6 +507,9 @@
                     document.getElementById("menuPersonal").style.display = "block";
                     document.getElementById("menuSocios").style.display = "block";
                 } else if (user.rol === "CONTADOR") {
+                    document.getElementById("menuDashboard").style.display = "block";
+                    document.getElementById("menuLotes").style.display = "none";
+                    document.getElementById("menuVentas").style.display = "none";
                     document.getElementById("menuEgresos").style.display = "block";
                     document.getElementById("menuSocios").style.display = "block";
                 }
