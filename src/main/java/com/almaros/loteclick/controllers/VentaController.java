@@ -182,4 +182,49 @@ public class VentaController {
 
         return ResponseEntity.ok(response);
     }
+
+    /**
+     * GET /api/ventas/mis-ventas
+     * Devuelve las ventas realizadas por el vendedor autenticado, o todas si es administrador.
+     */
+    @GetMapping("/ventas/mis-ventas")
+    public ResponseEntity<?> obtenerMisVentas(@RequestHeader("Authorization") String authorizationHeader) {
+        try {
+            Usuario usuario = sessionService.obtenerUsuarioAutenticado(
+                    authorizationHeader,
+                    List.of("VENDEDOR", "ADMINISTRADOR"),
+                    "No tiene permisos para consultar este registro de ventas."
+            );
+
+            List<VentaContrato> contratos;
+            if (usuario.getRol().getNombreRol().equals("ADMINISTRADOR")) {
+                contratos = ventaContratoRepository.findAll();
+            } else {
+                contratos = ventaContratoRepository.findByVendedorId(usuario.getId());
+            }
+
+            List<Map<String, Object>> responseList = new ArrayList<>();
+            for (VentaContrato c : contratos) {
+                Map<String, Object> map = new HashMap<>();
+                map.put("id", c.getId());
+                map.put("numeroLote", c.getLote() != null ? c.getLote().getNumeroLote() : null);
+                map.put("etapaNombre", (c.getLote() != null && c.getLote().getEtapa() != null) ? c.getLote().getEtapa().getNombreEtapa() : "N/A");
+                map.put("vendedorNombre", c.getVendedor() != null ? c.getVendedor().getNombreCompleto() : "N/A");
+                map.put("compradorNombre", c.getComprador() != null ? c.getComprador().getNombre() : "N/A");
+                map.put("precioVentaPactado", c.getPrecioVentaPactado());
+                map.put("cuotaSeparacion", c.getCuotaSeparacion());
+                map.put("plazoMeses", c.getPlazoMeses());
+                map.put("fechaVenta", c.getFechaVenta());
+                responseList.add(map);
+            }
+
+            return ResponseEntity.ok(responseList);
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Error interno al consultar las ventas: " + e.getMessage()));
+        }
+    }
 }

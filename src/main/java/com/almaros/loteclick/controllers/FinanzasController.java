@@ -270,22 +270,7 @@ public class FinanzasController {
         }
     }
 
-    @GetMapping("/socios")
-    public ResponseEntity<?> obtenerSocios(@RequestHeader("Authorization") String authorizationHeader) {
-        try {
-            Usuario usuario = sessionService.obtenerUsuarioAutenticado(
-                    authorizationHeader,
-                    List.of("CONTADOR", "ADMINISTRADOR"),
-                    "No tiene permisos para consultar socios."
-            );
-            return ResponseEntity.ok(finanzasService.obtenerSociosProyecto(usuario.getCorreo()));
-        } catch (IllegalArgumentException | IllegalStateException e) {
-            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.internalServerError().body(Map.of("error", "Error al consultar socios: " + e.getMessage()));
-        }
-    }
+
 
     @PostMapping("/socios")
     public ResponseEntity<?> registrarSocio(@RequestHeader("Authorization") String authorizationHeader,

@@ -63,52 +63,40 @@ public class DatabaseInitializer implements CommandLineRunner {
         Role contadorRol = registrarRolSiNoExiste("CONTADOR");
         Role vendedorRol = registrarRolSiNoExiste("VENDEDOR");
 
-        // 2. Insertar usuarios de prueba si no existen registros en la tabla usuarios
-        if (usuarioRepository.count() == 0) {
-            // Usuario Administrador
-            Usuario admin = new Usuario();
-            admin.setNombreCompleto("Gerente Almaros");
-            admin.setCorreo("admin@almaros.com");
-            admin.setContrasenaHash(BCrypt.hashpw("admin123", BCrypt.gensalt()));
-            admin.setRol(adminRol);
-            admin.setActivo(true);
-            usuarioRepository.save(admin);
+        // Remove any user with name containing "suspendido" or email "suspendido@almaros.com" or name "Asesor Suspendido"
+        usuarioRepository.findAll().forEach(u -> {
+            if (u.getNombreCompleto().equalsIgnoreCase("Asesor Suspendido") || 
+                u.getCorreo().equalsIgnoreCase("suspendido@almaros.com") || 
+                u.getNombreCompleto().toLowerCase().contains("suspendido")) {
+                usuarioRepository.delete(u);
+                System.out.println(">>> SE ELIMINÓ EL USUARIO SUSPENDIDO: " + u.getCorreo());
+            }
+        });
 
-            // Usuario Contador
-            Usuario contador = new Usuario();
-            contador.setNombreCompleto("Contador Almaros");
-            contador.setCorreo("contador@almaros.com");
-            contador.setContrasenaHash(BCrypt.hashpw("contador123", BCrypt.gensalt()));
-            contador.setRol(contadorRol);
-            contador.setActivo(true);
-            usuarioRepository.save(contador);
+        // 2. Insertar usuarios de prueba de forma idempotente
+        registrarUsuarioSiNoExiste("Gerente Almaros", "admin@almaros.com", "admin123", adminRol);
+        registrarUsuarioSiNoExiste("Contador Almaros", "contador@almaros.com", "contador123", contadorRol);
+        registrarUsuarioSiNoExiste("Vendedor Almaros", "vendedor@almaros.com", "vendedor123", vendedorRol);
 
-            // Usuario Vendedor
-            Usuario vendedor = new Usuario();
-            vendedor.setNombreCompleto("Vendedor Almaros");
-            vendedor.setCorreo("vendedor@almaros.com");
-            vendedor.setContrasenaHash(BCrypt.hashpw("vendedor123", BCrypt.gensalt()));
-            vendedor.setRol(vendedorRol);
-            vendedor.setActivo(true);
-            usuarioRepository.save(vendedor);
+        // 20 Vendedores realistas adicionales
+        String[] nombresVendedores = {
+            "Carlos Andrés Mendoza", "Laura Camila Restrepo", "Andrés Felipe Gómez", "Diana Patricia Pinzón",
+            "Juan Esteban Rojas", "Sandra Milena Silva", "Mateo Alejandro Ortiz", "Natalia Sofia Castro",
+            "Diego Fernando Valencia", "Valentina María Rincón", "Luis Eduardo Beltrán", "Paula Andrea Herrera",
+            "Jorge Mario Zuluaga", "Gabriela Inés Pardo", "Santiago José Cardona", "Juliana Andrea Muñoz",
+            "Camilo Andrés Torres", "Mariana Lucía Ramírez", "Daniel Felipe Martínez", "Carolina Inés Franco"
+        };
 
-            // Usuario inactivo (para validar la excepción de cuenta deshabilitada)
-            Usuario inactivo = new Usuario();
-            inactivo.setNombreCompleto("Asesor Suspendido");
-            inactivo.setCorreo("inactivo@almaros.com");
-            inactivo.setContrasenaHash(BCrypt.hashpw("inactivo123", BCrypt.gensalt()));
-            inactivo.setRol(vendedorRol);
-            inactivo.setActivo(false);
-            usuarioRepository.save(inactivo);
-
-            System.out.println("------------------------------------------------------------------");
-            System.out.println(">>> SE SEMBRARON LOS USUARIOS DE PRUEBA EXITOSAMENTE:");
-            System.out.println("  - Admin: admin@almaros.com | Clave: admin123");
-            System.out.println("  - Contador: contador@almaros.com | Clave: contador123");
-            System.out.println("  - Vendedor: vendedor@almaros.com | Clave: vendedor123");
-            System.out.println("  - Inactivo: inactivo@almaros.com | Clave: inactivo123");
-            System.out.println("------------------------------------------------------------------");
+        for (int i = 0; i < nombresVendedores.length; i++) {
+            String correo = nombresVendedores[i].toLowerCase()
+                    .replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+                    .replace(" ", ".") + "@almaros.com";
+            registrarUsuarioSiNoExiste(nombresVendedores[i], correo, "vendedor123", vendedorRol);
         }
+
+        System.out.println("------------------------------------------------------------------");
+        System.out.println(">>> SE SINCRONIZARON LOS USUARIOS DE PRUEBA EXITOSAMENTE.");
+        System.out.println("------------------------------------------------------------------");
 
         // 3. Asegurar la existencia de las 4 etapas
         Etapa etapa1 = registrarEtapaSiNoExiste("Etapa 1");
@@ -165,8 +153,7 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         // 5. Sembrar compradores y contratos de prueba para el test de multi-propiedad
         sembrarCompradoresYContratosDePrueba(etapa1, etapa2, etapa3);
-        sembrarAportesInversionistasDePrueba();
-        sembrarSociosYDistribucionesDePrueba();
+        sembrarSociosYAportesDePrueba();
     }
 
     private void sembrarCompradoresYContratosDePrueba(Etapa etapa1, Etapa etapa2, Etapa etapa3) {
@@ -208,8 +195,41 @@ public class DatabaseInitializer implements CommandLineRunner {
         // 4. Asociar Lotes y crear contratos para María Cardona (Lote 13 de Etapa 2, Lote 15 de Etapa 3)
         crearContratoSiNoExiste(maria, 13, etapa2, "SEPARADO", 18, vendedor);
         crearContratoSiNoExiste(maria, 15, etapa3, "SEPARADO", 12, vendedor);
+
+        // 5. Sembrar 50 clientes (compradores) realistas adicionales
+        String[] nombresCompradores = {
+            "Fernando Antonio Castro", "Gloria Patricia Restrepo", "Oscar Eduardo Díaz", "Martha Cecilia Rincón",
+            "Javier Andrés Medina", "Diana Carolina Ospina", "Mauricio Alberto Beltrán", "Olga Lucía Londoño",
+            "Gustavo Adolfo Salazar", "Claudia Patricia Vargas", "Ricardo Andrés Silva", "Liliana María Franco",
+            "Álvaro José Gutiérrez", "Sandra Milena Jaramillo", "Héctor Fabio Muñoz", "Beatriz Elena Ortiz",
+            "César Augusto Rojas", "Adriana María Cardona", "Iván Darío Bedoya", "Mónica Andrea Henao",
+            "Jaime Alberto Montoya", "Angela María Villegas", "Rubén Darío Herrera", "Paola Andrea Toro",
+            "Jorge Iván Giraldo", "Patricia Elena Correa", "William Orlando Marín", "Yolanda Andrea Serna",
+            "Alexander Felipe Betancur", "Consuelo María Agudelo", "Walter Antonio Ramírez", "Nelly Lucía Yepes",
+            "Carlos Mario Arango", "Luz Marina Jiménez", "Henry Alberto Duque", "Dora Cecilia Osorio",
+            "Alonso de Jesús Mesa", "Elvia María Zapata", "Gabriel Jaime Palacio", "Victoria Eugenia Hoyos",
+            "Raúl Hernán Suárez", "Lucía Inés Martínez", "Hugo Hernán González", "Isabel Cristina Ruiz",
+            "Nelson de Jesús Restrepo", "Clara Inés Gómez", "Luis Fernando Rivera", "Alicia María Peña",
+            "René Andrés Cañas", "Silvia Elena Berrío"
+        };
+
+        for (int i = 0; i < nombresCompradores.length; i++) {
+            String cedula = String.valueOf(500001 + i);
+            if (compradorRepository.findByCedula(cedula).isEmpty()) {
+                Comprador c = new Comprador();
+                c.setCedula(cedula);
+                c.setNombre(nombresCompradores[i]);
+                c.setTelefono("315" + String.format("%07d", 1000000 + i));
+                String correo = nombresCompradores[i].toLowerCase()
+                        .replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+                        .replace(" ", ".") + "@email.com";
+                c.setCorreo(correo);
+                c.setDireccion("Calle " + (10 + i) + " # " + (5 + i) + "-" + (20 + i) + ", Bogotá");
+                compradorRepository.save(c);
+            }
+        }
         
-        System.out.println(">>> SE SEMBRARON COMPRADORES DE PRUEBA Y CONTRATOS MULTI-PROPIEDAD EXITOSAMENTE.");
+        System.out.println(">>> SE SEMBRARON COMPRADORES DE PRUEBA Y CONTRATOS MULTI-PROPIEDAD EXITOSAMENTE (con 50 compradores adicionales).");
     }
 
     private void crearContratoSiNoExiste(Comprador comprador, int numeroLote, Etapa etapa, String estado, int plazo, Usuario vendedor) {
@@ -316,45 +336,84 @@ public class DatabaseInitializer implements CommandLineRunner {
         }
     }
 
-    private void sembrarAportesInversionistasDePrueba() {
-        if (aporteInversionistaRepository.count() > 0) return;
-
+    private void sembrarSociosYAportesDePrueba() {
         Usuario admin = usuarioRepository.findByCorreo("admin@almaros.com").orElse(null);
         if (admin == null) return;
 
-        AporteInversionista aporte1 = new AporteInversionista();
-        aporte1.setNombreInversionista("Socio Capital Norte");
-        aporte1.setMonto(BigDecimal.valueOf(45000000L));
-        aporte1.setFechaAporte(LocalDate.now().minusMonths(3));
-        aporte1.setDescripcion("Capital inicial para apertura de vías internas.");
-        aporte1.setRegistradoPor(admin);
+        String[] nombresSocios = {
+            "Mauricio Almaros", "Inversiones del Llano S.A.", "Héctor Fabio Gómez", "Claudia Restrepo Uribe",
+            "Fideicomiso San Antonio", "Luis Eduardo Rincón", "Diana Camila Ortiz", "Andrés Felipe Valencia",
+            "Mariana Lucía Beltrán", "Beatriz Pinzón Solano", "Carlos Mario Restrepo", "Santiago José Zuluaga",
+            "Sandra Milena Rojas", "Paula Andrea Herrera", "Fondo Capital Sabana"
+        };
 
-        AporteInversionista aporte2 = new AporteInversionista();
-        aporte2.setNombreInversionista("Fondo Inmobiliario Andes");
-        aporte2.setMonto(BigDecimal.valueOf(30000000L));
-        aporte2.setFechaAporte(LocalDate.now().minusMonths(1));
-        aporte2.setDescripcion("Refuerzo de caja para urbanismo y servicios.");
-        aporte2.setRegistradoPor(admin);
+        BigDecimal[] montosAportes = {
+            BigDecimal.valueOf(150000000L), BigDecimal.valueOf(120000000L), BigDecimal.valueOf(80000000L),
+            BigDecimal.valueOf(95000000L), BigDecimal.valueOf(110000000L), BigDecimal.valueOf(60000000L),
+            BigDecimal.valueOf(45000000L), BigDecimal.valueOf(70000000L), BigDecimal.valueOf(55000000L),
+            BigDecimal.valueOf(90000000L), BigDecimal.valueOf(130000000L), BigDecimal.valueOf(75000000L),
+            BigDecimal.valueOf(50000000L), BigDecimal.valueOf(65000000L), BigDecimal.valueOf(100000000L)
+        };
 
-        aporteInversionistaRepository.saveAll(List.of(aporte1, aporte2));
-    }
+        for (int i = 0; i < nombresSocios.length; i++) {
+            final String nombreSocio = nombresSocios[i];
+            SocioProyecto socio = socioProyectoRepository.findAll().stream()
+                    .filter(s -> s.getNombre().equalsIgnoreCase(nombreSocio))
+                    .findFirst()
+                    .orElse(null);
 
-    private void sembrarSociosYDistribucionesDePrueba() {
-        Usuario admin = usuarioRepository.findByCorreo("admin@almaros.com").orElse(null);
-        if (admin == null) return;
+            if (socio == null) {
+                socio = new SocioProyecto();
+                socio.setNombre(nombreSocio);
+                socio.setTelefono("310" + String.format("%07d", 2000000 + i));
+                String correo = nombreSocio.toLowerCase()
+                        .replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
+                        .replace(" ", ".").replace(".", "") + "@socios.com";
+                String correoNormalizado = correo.replace("s.a.", "sa");
+                socio.setCorreo(correoNormalizado);
+                socio.setActivo(true);
+                socio.setPorcentajeParticipacion(BigDecimal.ZERO);
+                socio.setObservaciones("Socio inversionista del proyecto");
+                socio = socioProyectoRepository.save(socio);
+            }
 
-        if (socioProyectoRepository.count() == 0) {
-            SocioProyecto socio1 = new SocioProyecto(null, "Socio 1", "3001112233", "socio1@almaros.com",
-                    BigDecimal.valueOf(25), true, "Participacion fundadora");
-            SocioProyecto socio2 = new SocioProyecto(null, "Socio 2", "3001112244", "socio2@almaros.com",
-                    BigDecimal.valueOf(25), true, "Participacion fundadora");
-            SocioProyecto socio3 = new SocioProyecto(null, "Socio 3", "3001112255", "socio3@almaros.com",
-                    BigDecimal.valueOf(25), true, "Participacion fundadora");
-            SocioProyecto socio4 = new SocioProyecto(null, "Socio 4", "3001112266", "socio4@almaros.com",
-                    BigDecimal.valueOf(25), true, "Participacion fundadora");
-            socioProyectoRepository.saveAll(List.of(socio1, socio2, socio3, socio4));
+            final String nom = socio.getNombre();
+            boolean aporteExiste = aporteInversionistaRepository.findAll().stream()
+                    .anyMatch(a -> a.getNombreInversionista().equalsIgnoreCase(nom));
+
+            if (!aporteExiste) {
+                AporteInversionista aporte = new AporteInversionista();
+                aporte.setNombreInversionista(nom);
+                aporte.setMonto(montosAportes[i]);
+                aporte.setFechaAporte(LocalDate.now().minusMonths(3).plusDays(i * 5));
+                aporte.setDescripcion("Aporte de capital para desarrollo de infraestructura del proyecto Mirador de San Antonio.");
+                aporte.setRegistradoPor(admin);
+                aporteInversionistaRepository.save(aporte);
+            }
         }
 
+        // Recalcular participaciones de socios sobre el total de aportes
+        BigDecimal totalAportes = aporteInversionistaRepository.findAll().stream()
+                .map(AporteInversionista::getMonto)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+        if (totalAportes.compareTo(BigDecimal.ZERO) > 0) {
+            List<SocioProyecto> socios = socioProyectoRepository.findAll();
+            for (SocioProyecto s : socios) {
+                BigDecimal totalSocio = aporteInversionistaRepository.findAll().stream()
+                        .filter(a -> a.getNombreInversionista().equalsIgnoreCase(s.getNombre()))
+                        .map(AporteInversionista::getMonto)
+                        .reduce(BigDecimal.ZERO, BigDecimal::add);
+
+                BigDecimal porcentaje = totalSocio
+                        .multiply(new BigDecimal("100"))
+                        .divide(totalAportes, 2, java.math.RoundingMode.HALF_UP);
+                s.setPorcentajeParticipacion(porcentaje);
+                socioProyectoRepository.save(s);
+            }
+        }
+
+        // Distribuciones
         if (distribucionSocioRepository.count() == 0) {
             List<SocioProyecto> socios = socioProyectoRepository.findAllByActivoTrueOrderByNombreAsc();
             if (socios.size() >= 3) {
@@ -374,6 +433,18 @@ public class DatabaseInitializer implements CommandLineRunner {
         }
     }
 
+    private void registrarUsuarioSiNoExiste(String nombreCompleto, String correo, String contrasena, Role rol) {
+        String correoNormalizado = correo.toLowerCase();
+        if (usuarioRepository.findByCorreo(correoNormalizado).isEmpty()) {
+            Usuario u = new Usuario();
+            u.setNombreCompleto(nombreCompleto);
+            u.setCorreo(correoNormalizado);
+            u.setContrasenaHash(BCrypt.hashpw(contrasena, BCrypt.gensalt()));
+            u.setRol(rol);
+            u.setActivo(true);
+            usuarioRepository.save(u);
+        }
+    }
 
     private Role registrarRolSiNoExiste(String nombreRol) {
         Optional<Role> roleOpt = rolRepository.findByNombreRol(nombreRol);

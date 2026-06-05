@@ -43,4 +43,10 @@ public class Lote {
 
     @Column(name = "estado", nullable = false, length = 30)
     private String estado = "DISPONIBLE"; // DISPONIBLE, SEPARADO, VENDIDO
+
+    @Column(name = "url_imagen", length = 255)
+    private String urlImagen;
+
+    @Column(name = "descripcion", columnDefinition = "TEXT")
+    private String descripcion;
 }

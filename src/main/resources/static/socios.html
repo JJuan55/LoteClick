@@ -1,0 +1,472 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoteClick - Control de Socios</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Animate.css -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --color-navy: #0B2545;
+            --color-blue: #134074;
+            --color-gray-bg: #EEF4F8;
+            --color-danger: #E63946;
+            --color-success: #2A9D8F;
+            --sidebar-width: 260px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-gray-bg);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Fija */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--color-navy);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            z-index: 100;
+            box-shadow: 4px 0 15px rgba(11, 37, 69, 0.15);
+        }
+
+        .sidebar-brand {
+            padding: 1.5rem;
+            font-weight: 700;
+            font-size: 1.4rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 1.5rem 0;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .menu-item a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0.85rem 1.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .menu-item.active a, .menu-item a:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left-color: var(--color-success);
+        }
+
+        .sidebar-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Contenedor Principal */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .navbar-custom {
+            background-color: #ffffff;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            box-shadow: 0 2px 10px rgba(11, 37, 69, 0.05);
+        }
+
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-badge {
+            background-color: var(--color-gray-bg);
+            color: var(--color-navy);
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid rgba(11, 37, 69, 0.1);
+        }
+
+        .btn-logout {
+            color: var(--color-danger);
+            border: 1.5px solid var(--color-danger);
+            background: transparent;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.4rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-logout:hover {
+            background-color: var(--color-danger);
+            color: #ffffff;
+        }
+
+        .content-body {
+            padding: 2rem;
+        }
+
+        .card-premium {
+            background: #ffffff;
+            border-radius: 16px;
+            border: 1px solid rgba(11, 37, 69, 0.06);
+            box-shadow: 0 4px 25px rgba(11, 37, 69, 0.03);
+            overflow: hidden;
+        }
+
+        .table-custom th {
+            background-color: var(--color-navy);
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 1rem;
+            border: none;
+        }
+
+        .table-custom td {
+            padding: 1rem;
+            vertical-align: middle;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(11, 37, 69, 0.05);
+        }
+
+        .btn-navy {
+            background-color: var(--color-navy);
+            color: #ffffff;
+            transition: all 0.2s ease;
+        }
+
+        .btn-navy:hover {
+            background-color: var(--color-blue);
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Seguridad: Validar sesión del Administrador -->
+    <script>
+        const activeUser = sessionStorage.getItem("user");
+        if (!activeUser) {
+            alert("Acceso denegado. Inicie sesión primero.");
+            window.location.href = "index.html";
+        } else {
+            const user = JSON.parse(activeUser);
+            if (!user.token || user.rol !== "ADMINISTRADOR") {
+                alert("Acceso denegado. Esta sección es exclusiva de Administradores.");
+                window.location.href = "index.html";
+            }
+        }
+    </script>
+
+    <!-- Sidebar Lateral -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <i class="bi bi-geo-fill text-success"></i>
+            <span>LoteClick</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item">
+                <a href="dashboard.html"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+            </li>
+            <li class="menu-item">
+                <a href="inventario.html"><i class="bi bi-map-fill"></i> Inventario Lotes</a>
+            </li>
+            <li class="menu-item">
+                <a href="cartera.html"><i class="bi bi-person-card-heading"></i> Cartera / Clientes</a>
+            </li>
+            <li class="menu-item" id="menuVentas">
+                <a href="ventas.html"><i class="bi bi-award-fill"></i> Registro de Ventas</a>
+            </li>
+            <li class="menu-item">
+                <a href="egresos.html"><i class="bi bi-cash-stack"></i> Egresos</a>
+            </li>
+            <li class="menu-item">
+                <a href="usuarios.html"><i class="bi bi-people-fill"></i> Personal Interno</a>
+            </li>
+            <li class="menu-item active">
+                <a href="socios.html"><i class="bi bi-bank2"></i> Socios Inversores</a>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <span class="small opacity-50">ALMAROS v0.1</span>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="main-content">
+        <!-- Barra de Navegación Superior -->
+        <div class="navbar-custom">
+            <h4 class="m-0 text-navy" style="color: var(--color-navy); font-weight: 700;">Control de Socios Inversionistas</h4>
+            <div class="navbar-user">
+                <span class="user-badge" id="userNameLabel">Cargando...</span>
+                <button class="btn btn-logout" id="logoutBtn"><i class="bi bi-box-arrow-right"></i> Salir</button>
+            </div>
+        </div>
+
+        <!-- Cuerpo de Contenido -->
+        <div class="content-body animate__animated animate__fadeIn">
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="m-0 fw-bold text-navy" style="color: var(--color-navy);"><i class="bi bi-people-fill text-success"></i> Participación de Capital</h5>
+                <button class="btn btn-navy fw-semibold px-4 py-2 rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#aporteModal">
+                    <i class="bi bi-plus-circle-fill"></i> Inyectar Capital
+                </button>
+            </div>
+
+            <!-- Alertas -->
+            <div id="sociosAlert" class="alert alert-info py-2 d-none align-items-center gap-2" role="alert">
+                <i class="bi bi-info-circle-fill"></i> <span id="sociosAlertText"></span>
+            </div>
+
+            <!-- Tabla de Socios -->
+            <div class="card-premium p-0">
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover m-0">
+                        <thead>
+                            <tr>
+                                <th>Nombre del Socio</th>
+                                <th>Capital Aportado (COP)</th>
+                                <th>Participación Porcentual</th>
+                                <th>Estado</th>
+                                <th>Observaciones</th>
+                            </tr>
+                        </thead>
+                        <tbody id="sociosTableBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-5 text-muted">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando inversionistas...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Inyectar Capital -->
+    <div class="modal fade" id="aporteModal" tabindex="-1" aria-labelledby="aporteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-navy text-white p-3 px-4">
+                    <h5 class="modal-title" id="aporteModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-bank2"></i> Registrar Inyección de Capital
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="modalAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="modalAlertText"></span>
+                    </div>
+                    
+                    <form id="aporteCapitalForm">
+                        <div class="mb-3">
+                            <label for="apoNombre" class="form-label text-navy fw-semibold">Nombre del Socio / Inversionista <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="apoNombre" placeholder="Ej. Mauricio Almaros" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="apoMonto" class="form-label text-navy fw-semibold">Monto del Aporte (COP) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control fw-bold text-success fs-5" id="apoMonto" placeholder="Monto en COP" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="apoFecha" class="form-label text-navy fw-semibold">Fecha de Aporte <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="apoFecha" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="apoDesc" class="form-label text-navy fw-semibold">Observaciones / Detalles</label>
+                            <textarea class="form-control" id="apoDesc" rows="3" placeholder="Detalles de la transferencia bancaria, etc..."></textarea>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarAporte">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="aporteSpinner" role="status" aria-hidden="true"></span>
+                                Confirmar Aporte
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/session.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const user = getActiveUser();
+            if (user) {
+                document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (Admin)`;
+            }
+
+            // Set default date to today
+            document.getElementById("apoFecha").value = new Date().toISOString().substring(0, 10);
+
+            document.getElementById("logoutBtn").addEventListener("click", () => {
+                sessionStorage.clear();
+                window.location.href = "index.html";
+            });
+
+            const aporteModal = new bootstrap.Modal(document.getElementById("aporteModal"));
+            const sociosTableBody = document.getElementById("sociosTableBody");
+            const aporteCapitalForm = document.getElementById("aporteCapitalForm");
+            const modalAlert = document.getElementById("modalAlert");
+            const modalAlertText = document.getElementById("modalAlertText");
+            const aporteSpinner = document.getElementById("aporteSpinner");
+
+            function formatCOP(val) {
+                return new Intl.NumberFormat('es-CO', {
+                    style: 'currency',
+                    currency: 'COP',
+                    minimumFractionDigits: 0,
+                    maximumFractionDigits: 0
+                }).format(val || 0);
+            }
+
+            // Cargar socios
+            async function cargarSocios() {
+                try {
+                    const response = await fetch("/api/socios", {
+                        headers: getAuthHeaders()
+                    });
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || "No se pudo obtener la lista de socios.");
+                    }
+
+                    sociosTableBody.innerHTML = "";
+                    if (data.length === 0) {
+                        sociosTableBody.innerHTML = `
+                            <tr>
+                                <td colspan="5" class="text-center py-4 text-muted">
+                                    No hay socios registrados en el sistema.
+                                </td>
+                            </tr>
+                        `;
+                        return;
+                    }
+
+                    data.forEach(s => {
+                        const tr = document.createElement("tr");
+                        tr.className = "animate__animated animate__fadeIn";
+
+                        let statusBadge = s.activo 
+                            ? `<span class="badge bg-success bg-opacity-10 text-success fw-bold p-2"><i class="bi bi-check-circle-fill"></i> Activo</span>`
+                            : `<span class="badge bg-danger bg-opacity-10 text-danger fw-bold p-2"><i class="bi bi-x-circle-fill"></i> Inactivo</span>`;
+
+                        tr.innerHTML = `
+                            <td class="fw-semibold text-navy"><i class="bi bi-person-fill text-muted"></i> ${s.nombre}</td>
+                            <td class="fw-bold text-navy fs-6">${formatCOP(s.totalAportado)}</td>
+                            <td class="fw-bold text-success fs-6">${s.porcentajeParticipacion.toFixed(2)} %</td>
+                            <td>${statusBadge}</td>
+                            <td class="text-muted small">${s.observaciones || "-"}</td>
+                        `;
+                        sociosTableBody.appendChild(tr);
+                    });
+
+                } catch (error) {
+                    console.error(error);
+                    sociosTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-danger">
+                                <i class="bi bi-exclamation-triangle-fill"></i> Error al cargar control de socios.
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // Registrar aporte
+            aporteCapitalForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                modalAlert.classList.add("d-none");
+                
+                const nombreInversionista = document.getElementById("apoNombre").value.trim();
+                const monto = document.getElementById("apoMonto").value;
+                const fechaAporte = document.getElementById("apoFecha").value;
+                const descripcion = document.getElementById("apoDesc").value.trim();
+
+                if (monto <= 0) {
+                    modalAlertText.textContent = "El monto del aporte debe ser superior a cero.";
+                    modalAlert.classList.remove("d-none");
+                    return;
+                }
+
+                aporteSpinner.classList.remove("d-none");
+
+                try {
+                    const response = await fetch("/api/socios/aporte", {
+                        method: "POST",
+                        headers: getAuthHeaders({
+                            "Content-Type": "application/json"
+                        }),
+                        body: JSON.stringify({
+                            nombreInversionista,
+                            monto,
+                            fechaAporte,
+                            descripcion
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || "Error al registrar inyección de capital.");
+                    }
+
+                    // Éxito
+                    aporteCapitalForm.reset();
+                    document.getElementById("apoFecha").value = new Date().toISOString().substring(0, 10);
+                    aporteModal.hide();
+                    cargarSocios();
+
+                } catch (error) {
+                    console.error(error);
+                    modalAlertText.textContent = error.message;
+                    modalAlert.classList.remove("d-none");
+                } finally {
+                    aporteSpinner.classList.add("d-none");
+                }
+            });
+
+            cargarSocios();
+        });
+    </script>
+</body>
+</html>

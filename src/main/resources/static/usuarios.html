@@ -1,0 +1,469 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LoteClick - Gestión de Personal</title>
+    <!-- Google Fonts: Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Bootstrap 5 CSS via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- Bootstrap Icons via CDN -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Animate.css -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css" rel="stylesheet">
+    
+    <style>
+        :root {
+            --color-navy: #0B2545;
+            --color-blue: #134074;
+            --color-gray-bg: #EEF4F8;
+            --color-danger: #E63946;
+            --color-success: #2A9D8F;
+            --sidebar-width: 260px;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--color-gray-bg);
+            margin: 0;
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* Sidebar Fija */
+        .sidebar {
+            width: var(--sidebar-width);
+            background-color: var(--color-navy);
+            color: #ffffff;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            z-index: 100;
+            box-shadow: 4px 0 15px rgba(11, 37, 69, 0.15);
+        }
+
+        .sidebar-brand {
+            padding: 1.5rem;
+            font-weight: 700;
+            font-size: 1.4rem;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .sidebar-menu {
+            list-style: none;
+            padding: 1.5rem 0;
+            margin: 0;
+            flex-grow: 1;
+        }
+
+        .menu-item a {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 0.85rem 1.5rem;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+            font-weight: 500;
+            font-size: 0.95rem;
+            transition: all 0.2s ease;
+            border-left: 4px solid transparent;
+        }
+
+        .menu-item.active a, .menu-item a:hover {
+            color: #ffffff;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-left-color: var(--color-success);
+        }
+
+        .sidebar-footer {
+            padding: 1rem 1.5rem;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+        }
+
+        /* Contenedor Principal */
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            overflow-y: auto;
+        }
+
+        .navbar-custom {
+            background-color: #ffffff;
+            height: 70px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 2rem;
+            box-shadow: 0 2px 10px rgba(11, 37, 69, 0.05);
+        }
+
+        .navbar-user {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .user-badge {
+            background-color: var(--color-gray-bg);
+            color: var(--color-navy);
+            font-weight: 600;
+            font-size: 0.85rem;
+            padding: 0.4rem 0.8rem;
+            border-radius: 20px;
+            border: 1px solid rgba(11, 37, 69, 0.1);
+        }
+
+        .btn-logout {
+            color: var(--color-danger);
+            border: 1.5px solid var(--color-danger);
+            background: transparent;
+            font-size: 0.9rem;
+            font-weight: 600;
+            border-radius: 8px;
+            padding: 0.4rem 1rem;
+            transition: all 0.2s ease;
+        }
+
+        .btn-logout:hover {
+            background-color: var(--color-danger);
+            color: #ffffff;
+        }
+
+        .content-body {
+            padding: 2rem;
+        }
+
+        .card-premium {
+            background: #ffffff;
+            border-radius: 16px;
+            border: 1px solid rgba(11, 37, 69, 0.06);
+            box-shadow: 0 4px 25px rgba(11, 37, 69, 0.03);
+            overflow: hidden;
+        }
+
+        .table-custom th {
+            background-color: var(--color-navy);
+            color: #ffffff;
+            font-weight: 600;
+            font-size: 0.9rem;
+            padding: 1rem;
+            border: none;
+        }
+
+        .table-custom td {
+            padding: 1rem;
+            vertical-align: middle;
+            font-size: 0.9rem;
+            border-bottom: 1px solid rgba(11, 37, 69, 0.05);
+        }
+
+        .btn-navy {
+            background-color: var(--color-navy);
+            color: #ffffff;
+            transition: all 0.2s ease;
+        }
+
+        .btn-navy:hover {
+            background-color: var(--color-blue);
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Seguridad: Validar sesión del Administrador -->
+    <script>
+        const activeUser = sessionStorage.getItem("user");
+        if (!activeUser) {
+            alert("Acceso denegado. Inicie sesión primero.");
+            window.location.href = "index.html";
+        } else {
+            const user = JSON.parse(activeUser);
+            if (!user.token || user.rol !== "ADMINISTRADOR") {
+                alert("Acceso denegado. Esta sección es exclusiva de Administradores.");
+                window.location.href = "index.html";
+            }
+        }
+    </script>
+
+    <!-- Sidebar Lateral -->
+    <div class="sidebar">
+        <div class="sidebar-brand">
+            <i class="bi bi-geo-fill text-success"></i>
+            <span>LoteClick</span>
+        </div>
+        <ul class="sidebar-menu">
+            <li class="menu-item">
+                <a href="dashboard.html"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
+            </li>
+            <li class="menu-item">
+                <a href="inventario.html"><i class="bi bi-map-fill"></i> Inventario Lotes</a>
+            </li>
+            <li class="menu-item">
+                <a href="cartera.html"><i class="bi bi-person-card-heading"></i> Cartera / Clientes</a>
+            </li>
+            <li class="menu-item" id="menuVentas">
+                <a href="ventas.html"><i class="bi bi-award-fill"></i> Registro de Ventas</a>
+            </li>
+            <li class="menu-item">
+                <a href="egresos.html"><i class="bi bi-cash-stack"></i> Egresos</a>
+            </li>
+            <li class="menu-item active">
+                <a href="usuarios.html"><i class="bi bi-people-fill"></i> Personal Interno</a>
+            </li>
+            <li class="menu-item">
+                <a href="socios.html"><i class="bi bi-bank2"></i> Socios Inversores</a>
+            </li>
+        </ul>
+        <div class="sidebar-footer">
+            <span class="small opacity-50">ALMAROS v0.1</span>
+        </div>
+    </div>
+
+    <!-- Contenido Principal -->
+    <div class="main-content">
+        <!-- Barra de Navegación Superior -->
+        <div class="navbar-custom">
+            <h4 class="m-0 text-navy" style="color: var(--color-navy); font-weight: 700;">Gestión de Personal Interno</h4>
+            <div class="navbar-user">
+                <span class="user-badge" id="userNameLabel">Cargando...</span>
+                <button class="btn btn-logout" id="logoutBtn"><i class="bi bi-box-arrow-right"></i> Salir</button>
+            </div>
+        </div>
+
+        <!-- Cuerpo de Contenido -->
+        <div class="content-body animate__animated animate__fadeIn">
+            
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h5 class="m-0 fw-bold text-navy" style="color: var(--color-navy);"><i class="bi bi-person-badge-fill text-success"></i> Empleados Registrados</h5>
+                <button class="btn btn-navy fw-semibold px-4 py-2 rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#userModal">
+                    <i class="bi bi-person-plus-fill"></i> Agregar Nuevo Empleado
+                </button>
+            </div>
+
+            <!-- Alertas -->
+            <div id="usuariosAlert" class="alert alert-info py-2 d-none align-items-center gap-2" role="alert">
+                <i class="bi bi-info-circle-fill"></i> <span id="usuariosAlertText"></span>
+            </div>
+
+            <!-- Tabla de Empleados -->
+            <div class="card-premium p-0">
+                <div class="table-responsive">
+                    <table class="table table-custom table-hover m-0">
+                        <thead>
+                            <tr>
+                                <th>Nombre Completo</th>
+                                <th>Correo Corporativo</th>
+                                <th>Rol Asignado</th>
+                                <th>Estado</th>
+                            </tr>
+                        </thead>
+                        <tbody id="usuariosTableBody">
+                            <tr>
+                                <td colspan="4" class="text-center py-5 text-muted">
+                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando personal...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Registro de Empleado -->
+    <div class="modal fade" id="userModal" tabindex="-1" aria-labelledby="userModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-navy text-white p-3 px-4">
+                    <h5 class="modal-title" id="userModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-person-plus-fill"></i> Registrar Nuevo Empleado
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="modalAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="modalAlertText"></span>
+                    </div>
+                    
+                    <form id="registroEmpleadoForm">
+                        <div class="mb-3">
+                            <label for="regNombre" class="form-label text-navy fw-semibold">Nombre Completo <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="regNombre" placeholder="Ej. Carlos Mendoza" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="regCorreo" class="form-label text-navy fw-semibold">Correo Corporativo <span class="text-danger">*</span></label>
+                            <input type="email" class="form-control" id="regCorreo" placeholder="carlos.mendoza@almaros.com" required>
+                            <div class="form-text">Debe ser un correo válido y único.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label for="regContrasena" class="form-label text-navy fw-semibold">Contraseña Temporal <span class="text-danger">*</span></label>
+                            <input type="password" class="form-control" id="regContrasena" placeholder="Mínimo 6 caracteres" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="regRol" class="form-label text-navy fw-semibold">Rol de Acceso <span class="text-danger">*</span></label>
+                            <select class="form-select" id="regRol" required>
+                                <option value="" disabled selected>Seleccione un rol...</option>
+                                <option value="VENDEDOR">Vendedor (Cierre de contratos y mapas)</option>
+                                <option value="CONTADOR">Contador (Control de egresos e ingresos)</option>
+                            </select>
+                        </div>
+
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-navy text-white p-2.5 rounded-3 fw-semibold" id="btnGuardarUsuario">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="registroSpinner" role="status" aria-hidden="true"></span>
+                                Registrar Empleado
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="js/session.js"></script>
+    <script>
+        document.addEventListener("DOMContentLoaded", () => {
+            const user = getActiveUser();
+            if (user) {
+                document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (Admin)`;
+            }
+
+            document.getElementById("logoutBtn").addEventListener("click", () => {
+                sessionStorage.clear();
+                window.location.href = "index.html";
+            });
+
+            const userModal = new bootstrap.Modal(document.getElementById("userModal"));
+            const usuariosTableBody = document.getElementById("usuariosTableBody");
+            const registroEmpleadoForm = document.getElementById("registroEmpleadoForm");
+            const modalAlert = document.getElementById("modalAlert");
+            const modalAlertText = document.getElementById("modalAlertText");
+            const registroSpinner = document.getElementById("registroSpinner");
+
+            // Cargar usuarios
+            async function cargarUsuarios() {
+                try {
+                    const response = await fetch("/api/usuarios", {
+                        headers: getAuthHeaders()
+                    });
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || "No se pudo obtener la lista de usuarios.");
+                    }
+
+                    usuariosTableBody.innerHTML = "";
+                    if (data.length === 0) {
+                        usuariosTableBody.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">
+                                    No hay empleados registrados en el sistema.
+                                </td>
+                            </tr>
+                        `;
+                        return;
+                    }
+
+                    data.forEach(u => {
+                        const tr = document.createElement("tr");
+                        tr.className = "animate__animated animate__fadeIn";
+                        
+                        let rolBadge = `<span class="badge bg-primary">${u.rol}</span>`;
+                        if (u.rol === "CONTADOR") {
+                            rolBadge = `<span class="badge bg-success">${u.rol}</span>`;
+                        } else if (u.rol === "ADMINISTRADOR") {
+                            rolBadge = `<span class="badge bg-navy">${u.rol}</span>`;
+                        }
+
+                        let statusBadge = u.activo 
+                            ? `<span class="text-success fw-bold"><i class="bi bi-check-circle-fill"></i> Activo</span>`
+                            : `<span class="text-danger fw-bold"><i class="bi bi-x-circle-fill"></i> Inactivo</span>`;
+
+                        tr.innerHTML = `
+                            <td class="fw-semibold text-navy">${u.nombreCompleto}</td>
+                            <td>${u.correo}</td>
+                            <td>${rolBadge}</td>
+                            <td>${statusBadge}</td>
+                        `;
+                        usuariosTableBody.appendChild(tr);
+                    });
+
+                } catch (error) {
+                    console.error(error);
+                    usuariosTableBody.innerHTML = `
+                        <tr>
+                            <td colspan="4" class="text-center py-4 text-danger">
+                                <i class="bi bi-exclamation-triangle-fill"></i> Error al cargar usuarios de personal.
+                            </td>
+                        </tr>
+                    `;
+                }
+            }
+
+            // Registrar usuario
+            registroEmpleadoForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+                modalAlert.classList.add("d-none");
+                
+                const nombreCompleto = document.getElementById("regNombre").value.trim();
+                const correo = document.getElementById("regCorreo").value.trim();
+                const contrasena = document.getElementById("regContrasena").value;
+                const rolNombre = document.getElementById("regRol").value;
+
+                if (contrasena.length < 6) {
+                    modalAlertText.textContent = "La contraseña debe tener al menos 6 caracteres.";
+                    modalAlert.classList.remove("d-none");
+                    return;
+                }
+
+                registroSpinner.classList.remove("d-none");
+
+                try {
+                    const response = await fetch("/api/usuarios/registro", {
+                        method: "POST",
+                        headers: getAuthHeaders({
+                            "Content-Type": "application/json"
+                        }),
+                        body: JSON.stringify({
+                            nombreCompleto,
+                            correo,
+                            contrasena,
+                            rolNombre
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        throw new Error(data.error || "Error al registrar usuario.");
+                    }
+
+                    // Éxito
+                    registroEmpleadoForm.reset();
+                    userModal.hide();
+                    cargarUsuarios();
+
+                } catch (error) {
+                    console.error(error);
+                    modalAlertText.textContent = error.message;
+                    modalAlert.classList.remove("d-none");
+                } finally {
+                    registroSpinner.classList.add("d-none");
+                }
+            });
+
+            cargarUsuarios();
+        });
+    </script>
+</body>
+</html>

@@ -150,6 +150,12 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            transition: transform 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .card-kpi:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(11, 37, 69, 0.05);
         }
 
         .kpi-icon {
@@ -199,8 +205,20 @@
             <li class="menu-item" id="menuLotes" style="display: none;">
                 <a href="inventario.html"><i class="bi bi-map-fill"></i> Inventario Lotes</a>
             </li>
+            <li class="menu-item" id="menuCartera" style="display: none;">
+                <a href="cartera.html"><i class="bi bi-person-card-heading"></i> Cartera / Clientes</a>
+            </li>
+            <li class="menu-item" id="menuVentas" style="display: none;">
+                <a href="ventas.html"><i class="bi bi-award-fill"></i> Registro de Ventas</a>
+            </li>
             <li class="menu-item" id="menuEgresos">
                 <a href="egresos.html"><i class="bi bi-cash-stack"></i> Egresos</a>
+            </li>
+            <li class="menu-item" id="menuPersonal" style="display: none;">
+                <a href="usuarios.html"><i class="bi bi-people-fill"></i> Personal Interno</a>
+            </li>
+            <li class="menu-item" id="menuSocios" style="display: none;">
+                <a href="socios.html"><i class="bi bi-bank2"></i> Socios Inversores</a>
             </li>
         </ul>
         <div class="sidebar-footer">
@@ -220,11 +238,11 @@
         </div>
 
         <!-- Cuerpo del Dashboard -->
-        <div class="content-body animate__animated animate__fadeIn">
+        <div class="content-body">
             <div class="row g-4 mb-4">
                 <!-- Ventas Efectivas -->
-                <div class="col-md-3">
-                    <div class="card-kpi">
+                <div class="col-md-3 col-sm-6 animate__animated animate__fadeInUp" style="animation-delay: 0.1s;">
+                    <div class="card-kpi shadow-sm">
                         <div>
                             <span class="text-muted small">Ventas Efectivas</span>
                             <h3 class="m-0 mt-1" id="ventasEfectivasLabel" style="font-weight: 700; color: var(--color-navy);">Cargando...</h3>
@@ -235,8 +253,8 @@
                     </div>
                 </div>
                 <!-- Total Recaudado -->
-                <div class="col-md-3">
-                    <div class="card-kpi">
+                <div class="col-md-3 col-sm-6 animate__animated animate__fadeInUp" style="animation-delay: 0.2s;">
+                    <div class="card-kpi shadow-sm">
                         <div>
                             <span class="text-muted small">Total Recaudado</span>
                             <h3 class="m-0 mt-1 text-success" id="totalRecaudadoLabel" style="font-weight: 700;">Cargando...</h3>
@@ -247,8 +265,8 @@
                     </div>
                 </div>
                 <!-- Pendiente Recaudo -->
-                <div class="col-md-3">
-                    <div class="card-kpi">
+                <div class="col-md-3 col-sm-6 animate__animated animate__fadeInUp" style="animation-delay: 0.3s;">
+                    <div class="card-kpi shadow-sm">
                         <div>
                             <span class="text-muted small">Pendiente Recaudo</span>
                             <h3 class="m-0 mt-1 text-warning" id="pendienteRecaudoLabel" style="font-weight: 700;">Cargando...</h3>
@@ -259,48 +277,72 @@
                     </div>
                 </div>
                 <!-- Utilidad Neta -->
-                <div class="col-md-3">
-                    <div class="card-kpi">
-                        <div>
-                            <span class="text-muted small">Caja Disponible</span>
-                            <h3 class="m-0 mt-1 text-success" id="saldoCajaLabel" style="font-weight: 700;">Cargando...</h3>
-                        </div>
-                        <div class="kpi-icon bg-success bg-opacity-10 text-success">
-                            <i class="bi bi-wallet2"></i>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <div class="row g-4 mb-4">
-                <div class="col-md-6">
-                    <div class="card-kpi">
+                <div class="col-md-3 col-sm-6 animate__animated animate__fadeInUp" style="animation-delay: 0.4s;">
+                    <div class="card-kpi shadow-sm">
                         <div>
                             <span class="text-muted small">Utilidad Neta</span>
-                            <h3 class="m-0 mt-1 text-danger" id="utilidadNetaLabel" style="font-weight: 700;">Cargando...</h3>
+                            <h3 class="m-0 mt-1 text-success" id="utilidadNetaLabel" style="font-weight: 700;">Cargando...</h3>
                         </div>
-                        <div class="kpi-icon bg-danger bg-opacity-10 text-danger">
-                            <i class="bi bi-pie-chart-fill"></i>
-                        </div>
-                    </div>
-                </div>
-                <div class="col-md-6">
-                    <div class="card-kpi">
-                        <div>
-                            <span class="text-muted small">Distribuido a Socios</span>
-                            <h3 class="m-0 mt-1 text-primary" id="totalDistribucionesSociosLabel" style="font-weight: 700;">Cargando...</h3>
-                        </div>
-                        <div class="kpi-icon bg-primary bg-opacity-10 text-primary">
-                            <i class="bi bi-people-fill"></i>
+                        <div class="kpi-icon bg-success bg-opacity-10 text-success">
+                            <i class="bi bi-graph-up-arrow"></i>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Panel de Alerta de Construcción -->
-            <div class="alert alert-info border-info bg-info bg-opacity-10 text-dark" role="alert" id="dashboardStatusAlert">
+            <!-- Tabla Comparativa Mensual: Ingresos vs Egresos -->
+            <div class="card border-0 shadow-sm p-4 mb-4 animate__animated animate__fadeInUp" style="border-radius: 12px; background: #ffffff; animation-delay: 0.5s;">
+                <h5 class="fw-bold text-navy mb-3" style="color: var(--color-navy);"><i class="bi bi-calendar3 text-success"></i> Comparativo Mensual: Ingresos vs Egresos</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle m-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Mes / Periodo</th>
+                                <th class="text-end">Ingresos Consolidados (COP)</th>
+                                <th class="text-end">Egresos Operativos (COP)</th>
+                                <th class="text-end">Balance Mensual (COP)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="comparativoMensualBody">
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">
+                                    Cargando comparativo...
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Bitácora de Auditoría Reciente (Solo Admin) -->
+            <div class="card border-0 shadow-sm p-4 mb-4 animate__animated animate__fadeInUp" id="auditoriaCard" style="border-radius: 12px; background: #ffffff; display: none; animation-delay: 0.6s;">
+                <h5 class="fw-bold text-navy mb-3" style="color: var(--color-navy);"><i class="bi bi-shield-check text-danger"></i> Bitácora de Auditoría Reciente</h5>
+                <div class="table-responsive" style="max-height: 250px; overflow-y: auto;">
+                    <table class="table table-hover align-middle m-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Fecha / Hora</th>
+                                <th>Usuario</th>
+                                <th>Rol</th>
+                                <th>Acción</th>
+                                <th>Detalles</th>
+                            </tr>
+                        </thead>
+                        <tbody id="auditoriaBody">
+                            <tr>
+                                <td colspan="5" class="text-center py-3 text-muted">
+                                    No hay registros de auditoría disponibles.
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Panel de Alerta de Estado -->
+            <div class="alert alert-info border-info bg-info bg-opacity-10 text-dark animate__animated animate__fadeIn" role="alert" id="dashboardStatusAlert">
                 <h5 class="alert-heading" style="font-weight: 600;"><i class="bi bi-info-circle-fill"></i> Resumen Financiero</h5>
-                <p class="mb-0" id="dashboardStatusText">Consultando métricas financieras en tiempo real...</p>
+                <p class="mb-0" id="dashboardStatusText">Consultando métricas de analítica en tiempo real...</p>
             </div>
         </div>
     </div>
@@ -314,9 +356,16 @@
                 // Cargar Nombre y Rol
                 document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (${user.rol})`;
                 
-                // Si es administrador, mostrar menú de lotes (los administradores tienen acceso a todo)
+                // Mostrar menús según el rol
                 if (user.rol === "ADMINISTRADOR") {
                     document.getElementById("menuLotes").style.display = "block";
+                    document.getElementById("menuCartera").style.display = "block";
+                    document.getElementById("menuVentas").style.display = "block";
+                    document.getElementById("menuPersonal").style.display = "block";
+                    document.getElementById("menuSocios").style.display = "block";
+                    document.getElementById("auditoriaCard").style.display = "block";
+                } else if (user.rol === "CONTADOR") {
+                    document.getElementById("menuEgresos").style.display = "block";
                 }
             }
 
@@ -340,39 +389,105 @@
                 const statusText = document.getElementById("dashboardStatusText");
 
                 try {
-                    const response = await fetch(`/api/dashboard/resumen`, {
+                    const response = await fetch(`/api/analitica/dashboard`, {
                         headers: getAuthHeaders()
                     });
                     const data = await response.json();
 
                     if (!response.ok) {
-                        throw new Error(data.error || "No se pudo cargar el resumen financiero.");
+                        throw new Error(data.error || "No se pudo cargar el análisis financiero.");
                     }
 
                     document.getElementById("ventasEfectivasLabel").textContent = formatCOP(data.ventasEfectivas);
                     document.getElementById("totalRecaudadoLabel").textContent = formatCOP(data.totalRecaudado);
                     document.getElementById("pendienteRecaudoLabel").textContent = formatCOP(data.pendienteRecaudo);
-                    document.getElementById("saldoCajaLabel").textContent = formatCOP(data.saldoCaja);
                     document.getElementById("utilidadNetaLabel").textContent = formatCOP(data.utilidadNeta);
-                    document.getElementById("totalDistribucionesSociosLabel").textContent = formatCOP(data.totalDistribucionesSocios);
+
+                    // Cargar tabla mensual
+                    const compBody = document.getElementById("comparativoMensualBody");
+                    compBody.innerHTML = "";
+                    if (!data.mensual || data.mensual.length === 0) {
+                        compBody.innerHTML = `
+                            <tr>
+                                <td colspan="4" class="text-center py-4 text-muted">
+                                    No hay transacciones registradas para mostrar comparativa mensual.
+                                </td>
+                            </tr>
+                        `;
+                    } else {
+                        data.mensual.forEach(m => {
+                            const tr = document.createElement("tr");
+                            const balance = m.ingresos - m.egresos;
+                            let balanceClass = balance >= 0 ? "text-success fw-bold" : "text-danger fw-bold";
+
+                            tr.innerHTML = `
+                                <td class="fw-semibold text-navy">${m.mes}</td>
+                                <td class="text-end text-success">${formatCOP(m.ingresos)}</td>
+                                <td class="text-end text-danger">${formatCOP(m.egresos)}</td>
+                                <td class="text-end ${balanceClass}">${formatCOP(balance)}</td>
+                            `;
+                            compBody.appendChild(tr);
+                        });
+                    }
 
                     statusAlert.className = "alert alert-success border-success bg-success bg-opacity-10 text-dark";
-                    statusText.textContent = `Resumen cargado: ${data.cantidadVentas} ventas, ${data.cantidadPagos} pagos, ${data.cantidadEgresos} egresos y ${data.cantidadDistribucionesSocios} distribuciones a socios.`;
+                    statusText.textContent = `Consolidado analítico cargado con éxito en tiempo real.`;
+
                 } catch (error) {
                     console.error(error);
                     document.getElementById("ventasEfectivasLabel").textContent = formatCOP(0);
                     document.getElementById("totalRecaudadoLabel").textContent = formatCOP(0);
                     document.getElementById("pendienteRecaudoLabel").textContent = formatCOP(0);
-                    document.getElementById("saldoCajaLabel").textContent = formatCOP(0);
                     document.getElementById("utilidadNetaLabel").textContent = formatCOP(0);
-                    document.getElementById("totalDistribucionesSociosLabel").textContent = formatCOP(0);
 
                     statusAlert.className = "alert alert-danger border-danger bg-danger bg-opacity-10 text-danger";
-                    statusText.textContent = "No se pudo cargar el resumen financiero desde el backend.";
+                    statusText.textContent = "No se pudo calcular el análisis financiero consolidado.";
+                }
+            }
+
+            // Cargar Logs de Auditoría (Solo para Admin)
+            async function cargarLogsAuditoria() {
+                if (user && user.rol === "ADMINISTRADOR") {
+                    try {
+                        const response = await fetch("/api/auditoria", {
+                            headers: getAuthHeaders()
+                        });
+                        const data = await response.json();
+
+                        if (response.ok) {
+                            const audBody = document.getElementById("auditoriaBody");
+                            audBody.innerHTML = "";
+                            if (data.length === 0) {
+                                audBody.innerHTML = `
+                                    <tr>
+                                        <td colspan="5" class="text-center py-3 text-muted">
+                                            No hay registros de auditoría disponibles.
+                                        </td>
+                                    </tr>
+                                `;
+                                return;
+                            }
+
+                            data.forEach(log => {
+                                const tr = document.createElement("tr");
+                                tr.innerHTML = `
+                                    <td class="small text-muted">${new Date(log.fechaHora).toLocaleString()}</td>
+                                    <td class="small fw-semibold text-navy">${log.usuarioNombre}</td>
+                                    <td><span class="badge bg-secondary" style="font-size: 0.75rem;">${log.rol}</span></td>
+                                    <td><span class="badge bg-navy" style="font-size: 0.75rem;">${log.accion}</span></td>
+                                    <td class="small text-muted">${log.detalles}</td>
+                                `;
+                                audBody.appendChild(tr);
+                            });
+                        }
+                    } catch (e) {
+                        console.error("Error al cargar auditoría:", e);
+                    }
                 }
             }
 
             cargarResumenDashboard();
+            cargarLogsAuditoria();
         });
     </script>
 </body>

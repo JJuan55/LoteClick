@@ -60,6 +60,9 @@ public class FinanzasService {
     @Autowired
     private StorageService storageService;
 
+    @Autowired
+    private AuditService auditService;
+
     /**
      * Registra un abono a una cuota mensual de manera atómica.
      * Cambia el estado de la cuota a PAGADA e inserta el registro en pagos_ingresos.
@@ -83,9 +86,35 @@ public class FinanzasService {
         cuota.setEstadoPago("PAGADA");
         cuotaAmortizacionRepository.save(cuota);
 
+        // 3.1 Verificar si todas las cuotas de esta venta están pagadas
+        VentaContrato venta = cuota.getVenta();
+        List<CuotaAmortizacion> todasCuotas = cuotaAmortizacionRepository.findByVentaIdOrderByNumeroCuotaAsc(venta.getId());
+        boolean todasPagadas = true;
+        for (CuotaAmortizacion c : todasCuotas) {
+            String estado = c.getId().equals(cuota.getId()) ? "PAGADA" : c.getEstadoPago();
+            if (!"PAGADA".equalsIgnoreCase(estado)) {
+                todasPagadas = false;
+                break;
+            }
+        }
+
+        if (todasPagadas) {
+            Lote lote = venta.getLote();
+            if (lote != null) {
+                lote.setEstado("VENDIDO");
+                loteRepository.save(lote);
+                auditService.registrarAccion(
+                        usuario,
+                        "LOTE_VENDIDO",
+                        String.format("El Lote %d (Etapa %s) ha sido totalmente pagado y su estado cambió a VENDIDO.", 
+                                lote.getNumeroLote(), lote.getEtapa().getNombreEtapa())
+                );
+                System.out.println(">>> LOTE COMPLETAMENTE PAGADO: Lote " + lote.getNumeroLote() + " cambió su estado a VENDIDO.");
+            }
+        }
+
         // 4. Generar recibo de caja único
         String reciboNum = String.format("RC-%05d", pagoIngresoRepository.count() + 1);
-        VentaContrato venta = cuota.getVenta();
         String urlRecibo = storageService.generarReciboPdfSimulado(
                 reciboNum,
                 venta.getLote().getNumeroLote().toString(),

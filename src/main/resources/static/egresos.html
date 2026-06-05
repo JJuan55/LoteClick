@@ -196,8 +196,17 @@
             <li class="menu-item" id="menuCartera">
                 <a href="cartera.html"><i class="bi bi-person-card-heading"></i> Cartera / Clientes</a>
             </li>
+            <li class="menu-item" id="menuVentas" style="display: none;">
+                <a href="ventas.html"><i class="bi bi-award-fill"></i> Registro de Ventas</a>
+            </li>
             <li class="menu-item active">
                 <a href="egresos.html"><i class="bi bi-cash-stack"></i> Egresos</a>
+            </li>
+            <li class="menu-item" id="menuPersonal" style="display: none;">
+                <a href="usuarios.html"><i class="bi bi-people-fill"></i> Personal Interno</a>
+            </li>
+            <li class="menu-item" id="menuSocios" style="display: none;">
+                <a href="socios.html"><i class="bi bi-bank2"></i> Socios Inversores</a>
             </li>
         </ul>
         <div class="sidebar-footer">
@@ -446,6 +455,7 @@
                                 <th scope="col" style="color: var(--color-navy); font-weight: 600;">Descripción</th>
                                 <th scope="col" style="color: var(--color-navy); font-weight: 600;">Monto (COP)</th>
                                 <th scope="col" style="color: var(--color-navy); font-weight: 600;">Registrado Por</th>
+                                <th scope="col" style="color: var(--color-navy); font-weight: 600; display: none;" id="accionesHeader">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="egresosTableBody">

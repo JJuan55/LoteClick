@@ -220,32 +220,38 @@ document.addEventListener("DOMContentLoaded", () => {
         detailPrecioBase.textContent = `${formatearPrecio(lote.precioBase)}`;
         detailEtapa.textContent = lote.etapa ? lote.etapa.nombreEtapa : "Etapa N/A";
 
-        // Cargar imagen dinámica basada en la etapa
+        // Cargar imagen dinámica basada en la etapa o la imagen personalizada del lote
         const detailLoteImage = document.getElementById("detailLoteImage");
         if (detailLoteImage) {
-            let imgUrl = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=600&q=80"; // Etapa 1
-            const etapaNombre = lote.etapa ? lote.etapa.nombreEtapa : "";
-            if (etapaNombre.includes("2")) {
-                imgUrl = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80"; // Etapa 2
-            } else if (etapaNombre.includes("3")) {
-                imgUrl = "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=600&q=80"; // Etapa 3
-            } else if (etapaNombre.includes("4")) {
-                imgUrl = "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=600&q=80"; // Etapa 4
+            let imgUrl = lote.urlImagen;
+            if (!imgUrl) {
+                imgUrl = "https://images.unsplash.com/photo-1500382017468-9049fed747ef?auto=format&fit=crop&w=600&q=80"; // Etapa 1
+                const etapaNombre = lote.etapa ? lote.etapa.nombreEtapa : "";
+                if (etapaNombre.includes("2")) {
+                    imgUrl = "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=600&q=80"; // Etapa 2
+                } else if (etapaNombre.includes("3")) {
+                    imgUrl = "https://images.unsplash.com/photo-1447752875215-b2761acb3c5d?auto=format&fit=crop&w=600&q=80"; // Etapa 3
+                } else if (etapaNombre.includes("4")) {
+                    imgUrl = "https://images.unsplash.com/photo-1473448912268-2022ce9509d8?auto=format&fit=crop&w=600&q=80"; // Etapa 4
+                }
             }
             detailLoteImage.src = imgUrl;
         }
 
-        // Cargar descripción dinámica basada en la etapa
+        // Cargar descripción dinámica o personalizada
         const detailDescripcion = document.getElementById("detailDescripcion");
         if (detailDescripcion) {
-            let desc = "Lote plano con excelente topografía, acceso directo a vías internas de la parcelación, disponibilidad para conexión de servicios públicos domiciliarios (agua y luz) y una espectacular vista panorámica al valle y Mirador.";
-            const etapaNombre = lote.etapa ? lote.etapa.nombreEtapa : "";
-            if (etapaNombre.includes("2")) {
-                desc = "Espectacular lote campestre con topografía de loma suave, ideal para construir casa vacacional. Cuenta con árboles nativos frutales, senderos ecológicos y acceso a zonas comunes de la parcelación.";
-            } else if (etapaNombre.includes("3")) {
-                desc = "Exclusivo lote de campo rodeado de bosque nativo, perfecto para los amantes del silencio y el avistamiento de aves. Clima templado, linderos naturales definidos y reserva de agua propia.";
-            } else if (etapaNombre.includes("4")) {
-                desc = "Lote con vista panorámica premium hacia la cordillera y la represa. Ubicado en la parte alta de la parcelación, cuenta con portería de seguridad, vías pavimentadas de acceso y todos los servicios básicos.";
+            let desc = lote.descripcion;
+            if (!desc) {
+                desc = "Lote plano con excelente topografía, acceso directo a vías internas de la parcelación, disponibilidad para conexión de servicios públicos domiciliarios (agua y luz) y una espectacular vista panorámica al valle y Mirador.";
+                const etapaNombre = lote.etapa ? lote.etapa.nombreEtapa : "";
+                if (etapaNombre.includes("2")) {
+                    desc = "Espectacular lote campestre con topografía de loma suave, ideal para construir casa vacacional. Cuenta con árboles nativos frutales, senderos ecológicos y acceso a zonas comunes de la parcelación.";
+                } else if (etapaNombre.includes("3")) {
+                    desc = "Exclusivo lote de campo rodeado de bosque nativo, perfecto para los amantes del silencio y el avistamiento de aves. Clima templado, linderos naturales definidos y reserva de agua propia.";
+                } else if (etapaNombre.includes("4")) {
+                    desc = "Lote con vista panorámica premium hacia la cordillera y la represa. Ubicado en la parte alta de la parcelación, cuenta con portería de seguridad, vías pavimentadas de acceso y todos los servicios básicos.";
+                }
             }
             detailDescripcion.textContent = desc;
         }
@@ -611,11 +617,38 @@ document.addEventListener("DOMContentLoaded", () => {
                 // Éxito: Ocultar modal, recargar lotes de la etapa actual
                 compradorModal.hide();
                 
-                // Mostrar notificación de éxito flotante y redirigir
-                alert(`¡Venta registrada exitosamente! Lote ${loteSeleccionado.numeroLote} ha sido separado. Redirigiendo a Cartera...`);
+                // Cargar datos en el modal de éxito elaborado
+                document.getElementById("exitoLote").textContent = `Lote ${loteSeleccionado.numeroLote} (${loteSeleccionado.etapa ? loteSeleccionado.etapa.nombreEtapa : 'N/A'})`;
+                document.getElementById("exitoCliente").textContent = compradorSeleccionado.nombre;
+                document.getElementById("exitoPrecio").textContent = formatearPrecio(precio);
+                document.getElementById("exitoSeparacion").textContent = formatearPrecio(separacion);
+                document.getElementById("exitoMeses").textContent = `${plazo} meses`;
                 
-                // Redirigir a cartera del cliente recién procesado
-                window.location.href = `cartera.html?cedula=${compradorSeleccionado.cedula}`;
+                // Configurar enlace de descarga de PDF del contrato
+                const btnDescargar = document.getElementById("btnDescargarContratoExito");
+                if (btnDescargar) {
+                    btnDescargar.href = data.urlPdfContrato || "#";
+                }
+
+                // Configurar botón para ir a la cartera
+                const btnIrACartera = document.getElementById("btnIrACarteraExito");
+                if (btnIrACartera) {
+                    btnIrACartera.onclick = () => {
+                        const exitoModal = bootstrap.Modal.getInstance(document.getElementById("ventaExitoModal"));
+                        if (exitoModal) exitoModal.hide();
+                        window.location.href = `cartera.html?cedula=${compradorSeleccionado.cedula}`;
+                    };
+                }
+
+                // Mostrar el modal de éxito elaborado
+                const exitoModalInstance = new bootstrap.Modal(document.getElementById("ventaExitoModal"));
+                exitoModalInstance.show();
+
+                // Recargar grilla de lotes y tabla de ventas
+                if (etapaSelect) {
+                    cargarLotes(etapaSelect.value);
+                }
+                cargarMisVentas();
 
             } else {
                 mostrarAlertaCredito(data.error || "Ocurrió un error al registrar el contrato de venta.");
@@ -658,4 +691,118 @@ document.addEventListener("DOMContentLoaded", () => {
             creditCuotaSeparacion.value = minVal;
         }
     });
+
+    // === Lógica para Registrar Nuevo Lote (Solo Admin) ===
+    const addLoteForm = document.getElementById("addLoteForm");
+    const addLoteModalElement = document.getElementById("addLoteModal");
+    const addLoteAlert = document.getElementById("addLoteAlert");
+    const addLoteAlertText = document.getElementById("addLoteAlertText");
+    const addLoteSpinner = document.getElementById("addLoteSpinner");
+    const btnConfirmarAddLote = document.getElementById("btnConfirmarAddLote");
+    const loteEtapaSelect = document.getElementById("loteEtapa");
+    const loteNumeroDisplay = document.getElementById("loteNumeroDisplay");
+    const btnAbrirLoteModal = document.getElementById("btnAbrirLoteModal");
+
+    // Función para auto-completar el número sugerido de lote
+    async function actualizarNumeroLoteSugerido() {
+        if (!loteEtapaSelect || !loteNumeroDisplay) return;
+        const etapaId = loteEtapaSelect.value;
+        loteNumeroDisplay.textContent = "Calculando...";
+        try {
+            const response = await fetch(`/api/lotes?etapaId=${etapaId}`, {
+                headers: getAuthHeaders()
+            });
+            if (response.ok) {
+                const lotes = await response.json();
+                const nextLoteNum = lotes.length > 0 ? lotes[lotes.length - 1].numeroLote + 1 : 1;
+                loteNumeroDisplay.textContent = `Lote ${nextLoteNum}`;
+            } else {
+                loteNumeroDisplay.textContent = "Error al calcular";
+            }
+        } catch (error) {
+            console.error("Error al sugerir número de lote:", error);
+            loteNumeroDisplay.textContent = "Error al calcular";
+        }
+    }
+
+    if (loteEtapaSelect) {
+        loteEtapaSelect.addEventListener("change", actualizarNumeroLoteSugerido);
+    }
+    if (btnAbrirLoteModal) {
+        btnAbrirLoteModal.addEventListener("click", actualizarNumeroLoteSugerido);
+    }
+
+    if (addLoteForm) {
+        addLoteForm.addEventListener("submit", async (e) => {
+            e.preventDefault();
+            if (addLoteAlert) addLoteAlert.classList.add("d-none");
+            
+            const etapaId = document.getElementById("loteEtapa").value;
+            const areaM2 = document.getElementById("loteArea").value;
+            const precioBase = document.getElementById("lotePrecio").value;
+            const descripcion = document.getElementById("loteDescripcion").value;
+            const imagenFile = document.getElementById("loteImagen").files[0];
+
+            if (addLoteSpinner) addLoteSpinner.classList.remove("d-none");
+            if (btnConfirmarAddLote) btnConfirmarAddLote.disabled = true;
+
+            try {
+                // Construir multipart FormData
+                const formData = new FormData();
+                formData.append("etapaId", etapaId);
+                formData.append("areaM2", areaM2);
+                formData.append("precioBase", precioBase);
+                if (descripcion) {
+                    formData.append("descripcion", descripcion);
+                }
+                if (imagenFile) {
+                    formData.append("imagenLote", imagenFile);
+                }
+
+                const response = await fetch("/api/lotes", {
+                    method: "POST",
+                    headers: getAuthHeaders(), // Sin Content-Type, lo infiere el navegador
+                    body: formData
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.error || "Error al crear el lote.");
+                }
+
+                // Éxito: resetear form, cerrar modal, refrescar grilla
+                addLoteForm.reset();
+                
+                const addLoteModal = bootstrap.Modal.getOrCreateInstance(addLoteModalElement);
+                if (addLoteModal) addLoteModal.hide();
+                
+                // Forzar remoción del backdrop
+                setTimeout(() => {
+                    const backdrop = document.querySelector(".modal-backdrop");
+                    if (backdrop) backdrop.remove();
+                    document.body.classList.remove("modal-open");
+                    document.body.style.overflow = "";
+                    document.body.style.paddingRight = "";
+                }, 300);
+
+                // Refrescar lotes
+                if (etapaSelect) {
+                    cargarLotes(etapaSelect.value);
+                }
+
+            } catch (error) {
+                console.error(error);
+                if (addLoteAlertText && addLoteAlert) {
+                    addLoteAlertText.textContent = error.message;
+                    addLoteAlert.classList.remove("d-none");
+                }
+            } finally {
+                if (addLoteSpinner) addLoteSpinner.classList.add("d-none");
+                if (btnConfirmarAddLote) btnConfirmarAddLote.disabled = false;
+            }
+        });
+    }
+
 });
+

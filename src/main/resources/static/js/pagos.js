@@ -15,6 +15,15 @@ document.addEventListener("DOMContentLoaded", () => {
             if (document.getElementById("menuLotes")) {
                 document.getElementById("menuLotes").style.display = "block";
             }
+            if (document.getElementById("menuVentas")) {
+                document.getElementById("menuVentas").style.display = "block";
+            }
+            if (document.getElementById("menuPersonal")) {
+                document.getElementById("menuPersonal").style.display = "block";
+            }
+            if (document.getElementById("menuSocios")) {
+                document.getElementById("menuSocios").style.display = "block";
+            }
         }
         if (user.rol !== "ADMINISTRADOR" && document.getElementById("resetDbBtn")) {
             document.getElementById("resetDbBtn").style.display = "none";
@@ -268,12 +277,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 throw new Error(ingresosResumen.error || "No se pudo obtener el resumen de ingresos.");
             }
 
+            const isAdmin = user && user.rol === "ADMINISTRADOR";
+            const accionesHeader = document.getElementById("accionesHeader");
+            if (accionesHeader) {
+                accionesHeader.style.display = isAdmin ? "table-cell" : "none";
+            }
+
             tableBody.innerHTML = "";
+            const colspanVal = isAdmin ? 9 : 8;
 
             if (egresos.length === 0) {
                 tableBody.innerHTML = `
                     <tr>
-                        <td colspan="8" class="text-center py-4 text-muted">
+                        <td colspan="${colspanVal}" class="text-center py-4 text-muted">
                             <i class="bi bi-info-circle fs-4 d-block mb-2"></i> No se encontraron salidas de caja en el filtro seleccionado.
                         </td>
                     </tr>
@@ -282,6 +298,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 egresos.forEach(eg => {
                     const tr = document.createElement("tr");
                     tr.className = "animate__animated animate__fadeIn";
+                    
+                    let deleteBtnCell = "";
+                    if (isAdmin) {
+                        const isOperativo = eg.tipoSalida === "OPERATIVO";
+                        deleteBtnCell = isOperativo 
+                            ? `<td><button class="btn btn-sm btn-danger btn-eliminar-egreso" data-id="${eg.id}" title="Eliminar egreso operativo"><i class="bi bi-trash"></i></button></td>`
+                            : `<td>-</td>`;
+                    }
+
                     tr.innerHTML = `
                         <td class="fw-bold text-navy">${eg.fecha}</td>
                         <td><span class="badge ${eg.tipoSalida === 'DISTRIBUCION_SOCIOS' ? 'bg-success' : 'bg-primary'} text-white text-uppercase" style="font-size: 0.75rem;">${eg.tipoSalida}</span></td>
@@ -291,8 +316,39 @@ document.addEventListener("DOMContentLoaded", () => {
                         <td class="text-muted small">${eg.descripcion || 'Sin descripción'}</td>
                         <td class="fw-bold text-danger">${formatCOP(eg.monto)}</td>
                         <td class="small text-navy"><i class="bi bi-person-circle"></i> ${eg.registradoPor || 'Sistema'}</td>
+                        ${deleteBtnCell}
                     `;
                     tableBody.appendChild(tr);
+                });
+
+                // Registrar eventos de eliminación
+                document.querySelectorAll(".btn-eliminar-egreso").forEach(btn => {
+                    btn.addEventListener("click", async (e) => {
+                        const egresoId = btn.getAttribute("data-id");
+                        if (confirm("¿Está seguro de que desea eliminar este egreso operativo? Esta acción es irreversible, se registrará en la bitácora de auditoría y afectará la utilidad neta de inmediato.")) {
+                            try {
+                                const response = await fetch(`/api/egresos/${egresoId}`, {
+                                    method: "DELETE",
+                                    headers: getAuthHeaders()
+                                });
+                                const resData = await response.json();
+                                if (response.ok) {
+                                    alert("Egreso operativo eliminado con éxito.");
+                                    // Recargar lista
+                                    const finicio = document.getElementById("filtroFechaInicio") ? document.getElementById("filtroFechaInicio").value : "";
+                                    const ffin = document.getElementById("filtroFechaFin") ? document.getElementById("filtroFechaFin").value : "";
+                                    const tsalida = document.getElementById("filtroTipoSalida") ? document.getElementById("filtroTipoSalida").value : "TODOS";
+                                    const frubro = document.getElementById("filtroRubro") ? document.getElementById("filtroRubro").value : "TODOS";
+                                    cargarEgresos(finicio, ffin, tsalida, frubro);
+                                } else {
+                                    alert(resData.error || "No se pudo eliminar el egreso.");
+                                }
+                            } catch (err) {
+                                console.error(err);
+                                alert("Error al conectar con el servidor para eliminar el egreso.");
+                            }
+                        }
+                    });
                 });
             }
 

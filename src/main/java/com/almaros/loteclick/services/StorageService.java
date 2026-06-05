@@ -321,4 +321,25 @@ public class StorageService {
         System.out.println(">>> ARCHIVO guardado localmente en fallback: /uploads/" + filename);
         return "/uploads/" + filename;
     }
+
+    /**
+     * Guarda una imagen de lote en el storage o carpeta local.
+     */
+    public String guardarImagenLote(org.springframework.web.multipart.MultipartFile file) throws IOException {
+        String originalFilename = file.getOriginalFilename();
+        if (originalFilename == null) originalFilename = "lote.jpg";
+        
+        String sanitizedFilename = originalFilename.replaceAll("\\s+", "_");
+        String finalFilename = "lote_" + java.util.UUID.randomUUID().toString().substring(0, 8) + "_" + sanitizedFilename;
+
+        if (supabaseKey != null && !supabaseKey.trim().isEmpty()) {
+            try {
+                return subirASupabase(file.getBytes(), "imagenes_lotes/" + finalFilename, file.getContentType());
+            } catch (Exception e) {
+                System.err.println(">>> ERROR al subir imagen a Supabase Storage: " + e.getMessage() + ". Ejecutando Fallback local.");
+            }
+        }
+
+        return guardarLocalmente(file.getBytes(), finalFilename);
+    }
 }

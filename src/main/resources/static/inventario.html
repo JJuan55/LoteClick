@@ -282,6 +282,18 @@
             <li class="menu-item">
                 <a href="cartera.html"><i class="bi bi-person-card-heading"></i> Cartera / Clientes</a>
             </li>
+            <li class="menu-item" id="menuVentas">
+                <a href="ventas.html"><i class="bi bi-award-fill"></i> Registro de Ventas</a>
+            </li>
+            <li class="menu-item" id="menuEgresos" style="display: none;">
+                <a href="egresos.html"><i class="bi bi-cash-stack"></i> Egresos</a>
+            </li>
+            <li class="menu-item" id="menuPersonal" style="display: none;">
+                <a href="usuarios.html"><i class="bi bi-people-fill"></i> Personal Interno</a>
+            </li>
+            <li class="menu-item" id="menuSocios" style="display: none;">
+                <a href="socios.html"><i class="bi bi-bank2"></i> Socios Inversores</a>
+            </li>
         </ul>
         <div class="sidebar-footer">
             <span class="small opacity-50">ALMAROS v0.1</span>
@@ -328,7 +340,13 @@
                             </select>
                         </div>
                     </div>
-                    <div class="col-md-6">
+                    <div class="col-md-2" id="adminAddLoteCol" style="display: none;">
+                        <label class="form-label fw-bold text-navy" style="font-weight: 600;">Acción</label>
+                        <button type="button" class="btn btn-success w-100 fw-bold" id="btnAbrirLoteModal" data-bs-toggle="modal" data-bs-target="#addLoteModal">
+                            <i class="bi bi-plus-circle"></i> Nuevo Lote
+                        </button>
+                    </div>
+                    <div class="col-md-6" id="countSummaryCol">
                         <div class="d-flex flex-wrap gap-3 justify-content-md-end text-center">
                             <div class="status-summary-card p-2 px-3 border rounded text-success bg-success bg-opacity-10 d-flex align-items-center gap-2" style="border-color: rgba(42, 157, 143, 0.3) !important;">
                                 <span class="fs-4 fw-bold" id="countDisponible">0</span>
@@ -516,6 +534,109 @@
         </div>
     </div>
 
+    <!-- Modal para Registrar Nuevo Lote (Solo Admin) -->
+    <div class="modal fade" id="addLoteModal" tabindex="-1" aria-labelledby="addLoteModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-navy text-white p-3 px-4">
+                    <h5 class="modal-title" id="addLoteModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-plus-circle"></i> Registrar Nuevo Lote
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="addLoteAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="addLoteAlertText"></span>
+                    </div>
+                    <form id="addLoteForm">
+                        <div class="mb-3">
+                            <label for="loteEtapa" class="form-label text-navy fw-semibold">Etapa de Parcelación <span class="text-danger">*</span></label>
+                            <select class="form-select" id="loteEtapa" required>
+                                <option value="1">Etapa 1</option>
+                                <option value="2">Etapa 2</option>
+                                <option value="3">Etapa 3</option>
+                                <option value="4">Etapa 4</option>
+                            </select>
+                        </div>
+                        <div class="mb-3 text-center bg-light p-3 rounded-3 border">
+                            <span class="text-navy fw-semibold d-block small mb-1">ID del lote asignado</span>
+                            <h4 id="loteNumeroDisplay" class="fw-bold text-navy m-0">Calculando...</h4>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loteArea" class="form-label text-navy fw-semibold">Área (m²) <span class="text-danger">*</span></label>
+                            <input type="number" step="0.01" class="form-control" id="loteArea" placeholder="Ej: 160.5" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="lotePrecio" class="form-label text-navy fw-semibold">Precio Base (COP) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control text-success fw-bold fs-5" id="lotePrecio" placeholder="Ej: 90000000" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loteDescripcion" class="form-label text-navy fw-semibold">Descripción (Opcional)</label>
+                            <textarea class="form-control" id="loteDescripcion" rows="2" placeholder="Vista panorámica, terreno plano, servicios..."></textarea>
+                        </div>
+                        <div class="mb-3">
+                            <label for="loteImagen" class="form-label text-navy fw-semibold">Imagen del Lote (Opcional)</label>
+                            <input type="file" class="form-control" id="loteImagen" accept="image/*">
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarAddLote">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="addLoteSpinner" role="status" aria-hidden="true"></span>
+                                Registrar Lote
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de Éxito de Venta Elaborado -->
+    <div class="modal fade" id="ventaExitoModal" tabindex="-1" aria-labelledby="ventaExitoModalLabel" aria-hidden="true" data-bs-backdrop="static">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-body p-5 text-center">
+                    <div class="mb-4">
+                        <i class="bi bi-check-circle-fill text-success" style="font-size: 5rem; filter: drop-shadow(0 4px 10px rgba(40, 167, 69, 0.3));"></i>
+                    </div>
+                    <h3 class="fw-bold text-navy mb-2" style="font-weight: 700;">¡Venta Concretada con Éxito!</h3>
+                    <p class="text-muted mb-4" style="font-size: 0.95rem;">El contrato ha sido firmado digitalmente y el lote ha sido separado satisfactoriamente.</p>
+                    
+                    <div class="p-3 bg-light rounded-3 text-start mb-4 border border-opacity-10" style="font-size: 0.9rem;">
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Lote Asignado:</span>
+                            <span class="fw-bold text-navy" id="exitoLote">Lote --</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Cliente Comprador:</span>
+                            <span class="fw-bold text-navy" id="exitoCliente">--</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Valor del Contrato:</span>
+                            <span class="fw-bold text-success" id="exitoPrecio">$ 0 COP</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-2">
+                            <span class="text-muted">Abono Inicial (Separación):</span>
+                            <span class="fw-bold text-success" id="exitoSeparacion">$ 0 COP</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span class="text-muted">Financiación:</span>
+                            <span class="fw-bold text-navy" id="exitoMeses">-- meses</span>
+                        </div>
+                    </div>
+                    
+                    <div class="d-flex flex-column gap-2">
+                        <a href="#" class="btn btn-navy text-white p-2.5 rounded-3 fw-semibold shadow-sm w-100" id="btnDescargarContratoExito" target="_blank">
+                            <i class="bi bi-file-earmark-pdf-fill text-danger me-1"></i> Descargar Contrato de Venta (PDF)
+                        </a>
+                        <button class="btn btn-success p-2.5 rounded-3 fw-semibold shadow-sm w-100" id="btnIrACarteraExito">
+                            <i class="bi bi-person-card-heading me-1"></i> Ver Estado de Cuenta en Cartera
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <!-- Bootstrap 5 Bundle JS (incluye Popper) -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
     <script src="js/session.js"></script>
@@ -526,11 +647,16 @@
             const user = JSON.parse(sessionStorage.getItem("user"));
             if (user) {
                 // Cargar Nombre y Rol
-                document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (${user.rol})`;
+                document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (${user.role || user.rol})`;
                 
                 // Mostrar Dashboard si es Administrador
                 if (user.rol === "ADMINISTRADOR") {
                     document.getElementById("menuDashboard").style.display = "block";
+                    document.getElementById("menuEgresos").style.display = "block";
+                    document.getElementById("menuPersonal").style.display = "block";
+                    document.getElementById("menuSocios").style.display = "block";
+                    document.getElementById("adminAddLoteCol").style.display = "block";
+                    document.getElementById("countSummaryCol").className = "col-md-4";
                 }
             }
 
