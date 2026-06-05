@@ -157,8 +157,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 window.location.href = "dashboard.html";
                 break;
             case "CONTADOR":
-                // Redirige a control de egresos e ingresos
-                window.location.href = "egresos.html";
+                window.location.href = "dashboard.html";
                 break;
             case "VENDEDOR":
                 window.location.href = "inventario.html";
