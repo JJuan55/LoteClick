@@ -1,13 +1,17 @@
 package com.almaros.loteclick.controllers;
 
 import com.almaros.loteclick.models.Comprador;
+import com.almaros.loteclick.models.VentaContrato;
 import com.almaros.loteclick.repositories.CompradorRepository;
+import com.almaros.loteclick.repositories.VentaContratoRepository;
 import com.almaros.loteclick.services.SessionService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -25,7 +29,44 @@ public class CompradorController {
     private CompradorRepository compradorRepository;
 
     @Autowired
+    private VentaContratoRepository ventaContratoRepository;
+
+    @Autowired
     private SessionService sessionService;
+
+    /**
+     * Lista los compradores registrados para mostrarlos al entrar al panel de cartera.
+     */
+    @GetMapping
+    public ResponseEntity<?> listarCompradores(@RequestHeader("Authorization") String authorizationHeader) {
+        try {
+            sessionService.obtenerUsuarioAutenticado(authorizationHeader, List.of("VENDEDOR", "CONTADOR", "ADMINISTRADOR"),
+                    "No tiene permisos para consultar compradores.");
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        }
+
+        List<Map<String, Object>> compradores = new ArrayList<>();
+        for (Comprador comprador : compradorRepository.findAllByOrderByNombreAsc()) {
+            List<VentaContrato> contratos = ventaContratoRepository.findByCompradorId(comprador.getId());
+            List<String> lotes = contratos.stream()
+                    .filter(contrato -> contrato.getLote() != null)
+                    .map(contrato -> "Lote " + contrato.getLote().getNumeroLote())
+                    .toList();
+
+            Map<String, Object> item = new HashMap<>();
+            item.put("id", comprador.getId());
+            item.put("cedula", comprador.getCedula());
+            item.put("nombre", comprador.getNombre());
+            item.put("telefono", comprador.getTelefono());
+            item.put("correo", comprador.getCorreo());
+            item.put("totalContratos", contratos.size());
+            item.put("lotes", lotes);
+            compradores.add(item);
+        }
+
+        return ResponseEntity.ok(compradores);
+    }
 
     /**
      * Busca un comprador por su número de cédula.

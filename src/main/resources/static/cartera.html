@@ -198,6 +198,17 @@
             background-color: rgba(42, 157, 143, 0.05) !important;
             box-shadow: 0 6px 12px rgba(42, 157, 143, 0.1) !important;
         }
+
+        .cliente-card {
+            transition: all 0.2s ease;
+            border: 1px solid rgba(11, 37, 69, 0.08) !important;
+        }
+
+        .cliente-card:hover {
+            transform: translateY(-2px);
+            border-color: var(--color-success) !important;
+            box-shadow: 0 6px 12px rgba(11, 37, 69, 0.08) !important;
+        }
     </style>
 </head>
 <body>
@@ -278,6 +289,21 @@
                                 <i class="bi bi-search"></i> Buscar
                             </button>
                         </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Listado inicial de clientes -->
+            <div id="clientesPanel" class="card border-0 shadow-sm p-4 mb-4" style="border-radius: 12px; background: #ffffff;">
+                <div class="d-flex flex-wrap justify-content-between align-items-center gap-3 mb-3">
+                    <h5 class="text-navy fw-bold mb-0">
+                        <i class="bi bi-people-fill text-success"></i> Clientes Registrados
+                    </h5>
+                    <span id="clientesCount" class="badge bg-navy text-white rounded-pill px-3 py-2">0 clientes</span>
+                </div>
+                <div id="clientesList" class="row g-3">
+                    <div class="col-12 text-center text-muted py-3">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando clientes...
                     </div>
                 </div>
             </div>
@@ -508,6 +534,10 @@
             const carteraDataContainer = document.getElementById("carteraDataContainer");
             const cedulaSearch = document.getElementById("cedulaSearch");
             const btnBuscarEstado = document.getElementById("btnBuscarEstado");
+            const clientesPanel = document.getElementById("clientesPanel");
+            const clientesList = document.getElementById("clientesList");
+            const clientesCount = document.getElementById("clientesCount");
+            let clientesRegistrados = [];
 
             // Buscar si viene cédula por URL query param (?cedula=123)
             const urlParams = new URLSearchParams(window.location.search);
@@ -515,6 +545,8 @@
             if (queryCedula) {
                 cedulaSearch.value = queryCedula;
                 cargarEstadoCuenta(queryCedula);
+            } else {
+                cargarClientes();
             }
 
             btnBuscarEstado.addEventListener("click", () => {
@@ -526,11 +558,99 @@
                 }
             });
 
+            cedulaSearch.addEventListener("input", () => {
+                renderClientes(clientesRegistrados, cedulaSearch.value.trim().toLowerCase());
+            });
+
+            async function cargarClientes() {
+                clientesPanel.classList.remove("d-none");
+                statusAlert.classList.add("d-none");
+                clientesList.innerHTML = `
+                    <div class="col-12 text-center text-muted py-3">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando clientes...
+                    </div>
+                `;
+
+                try {
+                    const response = await fetch("/api/compradores", {
+                        headers: getAuthHeaders()
+                    });
+                    const data = await response.json();
+
+                    if (response.ok) {
+                        clientesRegistrados = data;
+                        renderClientes(clientesRegistrados, cedulaSearch.value.trim().toLowerCase());
+                    } else {
+                        clientesList.innerHTML = `
+                            <div class="col-12">
+                                <div class="alert alert-danger mb-0">${data.error || "No se pudieron cargar los clientes."}</div>
+                            </div>
+                        `;
+                    }
+                } catch (e) {
+                    console.error(e);
+                    clientesList.innerHTML = `
+                        <div class="col-12">
+                            <div class="alert alert-danger mb-0">Error de conexión al cargar los clientes.</div>
+                        </div>
+                    `;
+                }
+            }
+
+            function renderClientes(clientes, filtro = "") {
+                const normalizado = filtro.toLowerCase();
+                const filtrados = clientes.filter(cliente => {
+                    const texto = `${cliente.nombre || ""} ${cliente.cedula || ""} ${cliente.telefono || ""} ${cliente.correo || ""}`.toLowerCase();
+                    return texto.includes(normalizado);
+                });
+
+                clientesCount.textContent = `${filtrados.length} ${filtrados.length === 1 ? "cliente" : "clientes"}`;
+
+                if (filtrados.length === 0) {
+                    clientesList.innerHTML = `
+                        <div class="col-12 text-center text-muted py-4">
+                            <i class="bi bi-person-x fs-1 d-block mb-2"></i>
+                            No hay clientes para mostrar.
+                        </div>
+                    `;
+                    return;
+                }
+
+                clientesList.innerHTML = "";
+                filtrados.forEach(cliente => {
+                    const col = document.createElement("div");
+                    col.className = "col-xl-4 col-md-6";
+                    const lotesTexto = cliente.lotes && cliente.lotes.length > 0 ? cliente.lotes.join(", ") : "Sin lotes asociados";
+                    col.innerHTML = `
+                        <button type="button" class="card cliente-card h-100 w-100 text-start p-3 bg-white">
+                            <div class="d-flex justify-content-between align-items-start gap-2 mb-2">
+                                <div>
+                                    <div class="fw-bold text-navy">${cliente.nombre || "Sin nombre"}</div>
+                                    <div class="small text-muted">C.C. ${cliente.cedula || "-"}</div>
+                                </div>
+                                <span class="badge ${cliente.totalContratos > 0 ? "bg-success" : "bg-secondary"} rounded-pill">
+                                    ${cliente.totalContratos} ${cliente.totalContratos === 1 ? "lote" : "lotes"}
+                                </span>
+                            </div>
+                            <div class="small text-muted mb-1"><i class="bi bi-telephone"></i> ${cliente.telefono || "Sin teléfono"}</div>
+                            <div class="small text-muted text-truncate mb-2"><i class="bi bi-envelope"></i> ${cliente.correo || "Sin correo"}</div>
+                            <div class="small fw-semibold text-navy"><i class="bi bi-pin-map-fill text-success"></i> ${lotesTexto}</div>
+                        </button>
+                    `;
+                    col.querySelector("button").addEventListener("click", () => {
+                        cedulaSearch.value = cliente.cedula;
+                        cargarEstadoCuenta(cliente.cedula);
+                    });
+                    clientesList.appendChild(col);
+                });
+            }
+
             async function cargarEstadoCuenta(cedula) {
                 statusAlert.className = "alert alert-light text-center py-4 border rounded-4";
                 statusAlert.innerHTML = `<span class="spinner-border spinner-border-sm me-2" role="status"></span> Consultando deudas en Supabase...`;
                 statusAlert.classList.remove("d-none");
                 carteraDataContainer.classList.add("d-none");
+                clientesPanel.classList.add("d-none");
 
                 try {
                     const response = await fetch(`/api/clientes/${cedula}/estado-cuenta`, {
