@@ -15,6 +15,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -250,11 +251,14 @@ public class FinanzasController {
             );
 
             String nombre = payload.get("nombreInversionista") != null ? payload.get("nombreInversionista").toString() : null;
+            UUID socioId = payload.get("socioId") != null && !payload.get("socioId").toString().isBlank()
+                    ? UUID.fromString(payload.get("socioId").toString())
+                    : null;
             BigDecimal monto = payload.get("monto") != null ? new BigDecimal(payload.get("monto").toString()) : null;
             LocalDate fecha = payload.get("fechaAporte") != null ? LocalDate.parse(payload.get("fechaAporte").toString()) : null;
             String descripcion = payload.get("descripcion") != null ? payload.get("descripcion").toString() : null;
 
-            AporteInversionista aporte = finanzasService.registrarAporteInversionista(usuario.getCorreo(), nombre, monto, fecha, descripcion);
+            AporteInversionista aporte = finanzasService.registrarAporteInversionista(usuario.getCorreo(), nombre, socioId, monto, fecha, descripcion);
             return ResponseEntity.ok(Map.of(
                     "id", aporte.getId(),
                     "nombreInversionista", aporte.getNombreInversionista(),
@@ -272,6 +276,24 @@ public class FinanzasController {
 
 
 
+    @GetMapping("/socios")
+    public ResponseEntity<?> listarSocios(@RequestHeader("Authorization") String authorizationHeader) {
+        try {
+            Usuario usuario = sessionService.obtenerUsuarioAutenticado(
+                    authorizationHeader,
+                    List.of("CONTADOR", "ADMINISTRADOR"),
+                    "No tiene permisos para consultar socios."
+            );
+
+            return ResponseEntity.ok(finanzasService.obtenerSociosProyecto(usuario.getCorreo()));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error al listar socios: " + e.getMessage()));
+        }
+    }
+
     @PostMapping("/socios")
     public ResponseEntity<?> registrarSocio(@RequestHeader("Authorization") String authorizationHeader,
                                             @RequestBody Map<String, Object> payload) {
@@ -285,9 +307,7 @@ public class FinanzasController {
             String nombre = payload.get("nombre") != null ? payload.get("nombre").toString() : null;
             String telefono = payload.get("telefono") != null ? payload.get("telefono").toString() : null;
             String correo = payload.get("correo") != null ? payload.get("correo").toString() : null;
-            BigDecimal porcentajeParticipacion = payload.get("porcentajeParticipacion") != null
-                    ? new BigDecimal(payload.get("porcentajeParticipacion").toString())
-                    : null;
+            BigDecimal porcentajeParticipacion = obtenerPorcentajeParticipacion(payload);
             String observaciones = payload.get("observaciones") != null ? payload.get("observaciones").toString() : null;
 
             SocioProyecto socio = finanzasService.registrarSocioProyecto(
@@ -299,19 +319,74 @@ public class FinanzasController {
                     observaciones
             );
 
+            return ResponseEntity.ok(respuestaSocio(socio));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error al registrar socio: " + e.getMessage()));
+        }
+    }
+
+    @PutMapping("/socios/{id}")
+    public ResponseEntity<?> actualizarSocio(@RequestHeader("Authorization") String authorizationHeader,
+                                             @PathVariable UUID id,
+                                             @RequestBody Map<String, Object> payload) {
+        try {
+            Usuario usuario = sessionService.obtenerUsuarioAutenticado(
+                    authorizationHeader,
+                    List.of("CONTADOR", "ADMINISTRADOR"),
+                    "No tiene permisos para editar socios."
+            );
+
+            String nombre = payload.get("nombre") != null ? payload.get("nombre").toString() : null;
+            String telefono = payload.get("telefono") != null ? payload.get("telefono").toString() : null;
+            String correo = payload.get("correo") != null ? payload.get("correo").toString() : null;
+            BigDecimal porcentajeParticipacion = obtenerPorcentajeParticipacion(payload);
+            String observaciones = payload.get("observaciones") != null ? payload.get("observaciones").toString() : null;
+            Boolean activo = payload.get("activo") != null ? Boolean.parseBoolean(payload.get("activo").toString()) : null;
+
+            SocioProyecto socio = finanzasService.actualizarSocioProyecto(
+                    usuario.getCorreo(),
+                    id,
+                    nombre,
+                    telefono,
+                    correo,
+                    porcentajeParticipacion,
+                    observaciones,
+                    activo
+            );
+
+            return ResponseEntity.ok(respuestaSocio(socio));
+        } catch (IllegalArgumentException | IllegalStateException e) {
+            return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            e.printStackTrace();
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error al editar socio: " + e.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/socios/{id}")
+    public ResponseEntity<?> eliminarSocio(@RequestHeader("Authorization") String authorizationHeader,
+                                           @PathVariable UUID id) {
+        try {
+            Usuario usuario = sessionService.obtenerUsuarioAutenticado(
+                    authorizationHeader,
+                    List.of("CONTADOR", "ADMINISTRADOR"),
+                    "No tiene permisos para eliminar socios."
+            );
+
+            SocioProyecto socio = finanzasService.desactivarSocioProyecto(usuario.getCorreo(), id);
             return ResponseEntity.ok(Map.of(
                     "id", socio.getId(),
                     "nombre", socio.getNombre(),
-                    "telefono", socio.getTelefono() != null ? socio.getTelefono() : "",
-                    "correo", socio.getCorreo() != null ? socio.getCorreo() : "",
-                    "porcentajeParticipacion", socio.getPorcentajeParticipacion(),
                     "activo", socio.getActivo()
             ));
         } catch (IllegalArgumentException | IllegalStateException e) {
             return ResponseEntity.badRequest().body(Map.of("error", e.getMessage()));
         } catch (Exception e) {
             e.printStackTrace();
-            return ResponseEntity.internalServerError().body(Map.of("error", "Error al registrar socio: " + e.getMessage()));
+            return ResponseEntity.internalServerError().body(Map.of("error", "Error al eliminar socio: " + e.getMessage()));
         }
     }
 
@@ -380,5 +455,27 @@ public class FinanzasController {
             e.printStackTrace();
             return ResponseEntity.internalServerError().body(Map.of("error", "Error al restablecer la base de datos: " + e.getMessage()));
         }
+    }
+
+    private Map<String, Object> respuestaSocio(SocioProyecto socio) {
+        Map<String, Object> response = new HashMap<>();
+        response.put("id", socio.getId());
+        response.put("nombre", socio.getNombre());
+        response.put("telefono", socio.getTelefono() != null ? socio.getTelefono() : "");
+        response.put("correo", socio.getCorreo() != null ? socio.getCorreo() : "");
+        response.put("porcentajeParticipacion", socio.getPorcentajeParticipacion());
+        response.put("activo", socio.getActivo());
+        return response;
+    }
+
+    private BigDecimal obtenerPorcentajeParticipacion(Map<String, Object> payload) {
+        if (payload.get("porcentajeParticipacion") == null) {
+            return null;
+        }
+        String valor = payload.get("porcentajeParticipacion").toString().trim();
+        if (valor.isEmpty()) {
+            return null;
+        }
+        return new BigDecimal(valor);
     }
 }

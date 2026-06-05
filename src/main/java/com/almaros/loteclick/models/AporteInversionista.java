@@ -34,6 +34,10 @@ public class AporteInversionista {
     private String descripcion;
 
     @ManyToOne
+    @JoinColumn(name = "socio_id")
+    private SocioProyecto socio;
+
+    @ManyToOne
     @JoinColumn(name = "registrado_por_id", nullable = false)
     private Usuario registradoPor;
 }

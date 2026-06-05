@@ -43,14 +43,6 @@ public class DatabaseInitializer implements CommandLineRunner {
     private CuotaAmortizacionRepository cuotaAmortizacionRepository;
 
     @Autowired
-    private AporteInversionistaRepository aporteInversionistaRepository;
-
-    @Autowired
-    private SocioProyectoRepository socioProyectoRepository;
-
-    @Autowired
-    private DistribucionSocioRepository distribucionSocioRepository;
-    @Autowired
     private StorageService storageService;
     @Autowired
     private PagoIngresoRepository pagoIngresoRepository;
@@ -153,7 +145,6 @@ public class DatabaseInitializer implements CommandLineRunner {
 
         // 5. Sembrar compradores y contratos de prueba para el test de multi-propiedad
         sembrarCompradoresYContratosDePrueba(etapa1, etapa2, etapa3);
-        sembrarSociosYAportesDePrueba();
     }
 
     private void sembrarCompradoresYContratosDePrueba(Etapa etapa1, Etapa etapa2, Etapa etapa3) {
@@ -332,103 +323,6 @@ public class DatabaseInitializer implements CommandLineRunner {
                     
                     pagoIngresoRepository.save(pago);
                 }
-            }
-        }
-    }
-
-    private void sembrarSociosYAportesDePrueba() {
-        Usuario admin = usuarioRepository.findByCorreo("admin@almaros.com").orElse(null);
-        if (admin == null) return;
-
-        String[] nombresSocios = {
-            "Mauricio Almaros", "Inversiones del Llano S.A.", "Héctor Fabio Gómez", "Claudia Restrepo Uribe",
-            "Fideicomiso San Antonio", "Luis Eduardo Rincón", "Diana Camila Ortiz", "Andrés Felipe Valencia",
-            "Mariana Lucía Beltrán", "Beatriz Pinzón Solano", "Carlos Mario Restrepo", "Santiago José Zuluaga",
-            "Sandra Milena Rojas", "Paula Andrea Herrera", "Fondo Capital Sabana"
-        };
-
-        BigDecimal[] montosAportes = {
-            BigDecimal.valueOf(150000000L), BigDecimal.valueOf(120000000L), BigDecimal.valueOf(80000000L),
-            BigDecimal.valueOf(95000000L), BigDecimal.valueOf(110000000L), BigDecimal.valueOf(60000000L),
-            BigDecimal.valueOf(45000000L), BigDecimal.valueOf(70000000L), BigDecimal.valueOf(55000000L),
-            BigDecimal.valueOf(90000000L), BigDecimal.valueOf(130000000L), BigDecimal.valueOf(75000000L),
-            BigDecimal.valueOf(50000000L), BigDecimal.valueOf(65000000L), BigDecimal.valueOf(100000000L)
-        };
-
-        for (int i = 0; i < nombresSocios.length; i++) {
-            final String nombreSocio = nombresSocios[i];
-            SocioProyecto socio = socioProyectoRepository.findAll().stream()
-                    .filter(s -> s.getNombre().equalsIgnoreCase(nombreSocio))
-                    .findFirst()
-                    .orElse(null);
-
-            if (socio == null) {
-                socio = new SocioProyecto();
-                socio.setNombre(nombreSocio);
-                socio.setTelefono("310" + String.format("%07d", 2000000 + i));
-                String correo = nombreSocio.toLowerCase()
-                        .replace("á", "a").replace("é", "e").replace("í", "i").replace("ó", "o").replace("ú", "u")
-                        .replace(" ", ".").replace(".", "") + "@socios.com";
-                String correoNormalizado = correo.replace("s.a.", "sa");
-                socio.setCorreo(correoNormalizado);
-                socio.setActivo(true);
-                socio.setPorcentajeParticipacion(BigDecimal.ZERO);
-                socio.setObservaciones("Socio inversionista del proyecto");
-                socio = socioProyectoRepository.save(socio);
-            }
-
-            final String nom = socio.getNombre();
-            boolean aporteExiste = aporteInversionistaRepository.findAll().stream()
-                    .anyMatch(a -> a.getNombreInversionista().equalsIgnoreCase(nom));
-
-            if (!aporteExiste) {
-                AporteInversionista aporte = new AporteInversionista();
-                aporte.setNombreInversionista(nom);
-                aporte.setMonto(montosAportes[i]);
-                aporte.setFechaAporte(LocalDate.now().minusMonths(3).plusDays(i * 5));
-                aporte.setDescripcion("Aporte de capital para desarrollo de infraestructura del proyecto Mirador de San Antonio.");
-                aporte.setRegistradoPor(admin);
-                aporteInversionistaRepository.save(aporte);
-            }
-        }
-
-        // Recalcular participaciones de socios sobre el total de aportes
-        BigDecimal totalAportes = aporteInversionistaRepository.findAll().stream()
-                .map(AporteInversionista::getMonto)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        if (totalAportes.compareTo(BigDecimal.ZERO) > 0) {
-            List<SocioProyecto> socios = socioProyectoRepository.findAll();
-            for (SocioProyecto s : socios) {
-                BigDecimal totalSocio = aporteInversionistaRepository.findAll().stream()
-                        .filter(a -> a.getNombreInversionista().equalsIgnoreCase(s.getNombre()))
-                        .map(AporteInversionista::getMonto)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                BigDecimal porcentaje = totalSocio
-                        .multiply(new BigDecimal("100"))
-                        .divide(totalAportes, 2, java.math.RoundingMode.HALF_UP);
-                s.setPorcentajeParticipacion(porcentaje);
-                socioProyectoRepository.save(s);
-            }
-        }
-
-        // Distribuciones
-        if (distribucionSocioRepository.count() == 0) {
-            List<SocioProyecto> socios = socioProyectoRepository.findAllByActivoTrueOrderByNombreAsc();
-            if (socios.size() >= 3) {
-                List<DistribucionSocio> distribuciones = new ArrayList<>();
-                for (int i = 0; i < 3; i++) {
-                    DistribucionSocio distribucion = new DistribucionSocio();
-                    distribucion.setSocio(socios.get(i));
-                    distribucion.setRegistradoPor(admin);
-                    distribucion.setMonto(BigDecimal.valueOf(5000000L));
-                    distribucion.setFechaDistribucion(LocalDate.now().minusDays(20));
-                    distribucion.setReferencia("Venta Lote 13 - abono inicial");
-                    distribucion.setDescripcion("Distribucion parcial de recaudo a socios");
-                    distribuciones.add(distribucion);
-                }
-                distribucionSocioRepository.saveAll(distribuciones);
             }
         }
     }

@@ -155,6 +155,21 @@
             background-color: var(--color-blue);
             color: #ffffff;
         }
+
+        .socios-table th,
+        .socios-table td {
+            vertical-align: middle;
+        }
+
+        .socios-table .money-cell {
+            min-width: 130px;
+            white-space: nowrap;
+        }
+
+        .socios-table .acciones-cell {
+            min-width: 150px;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
@@ -231,13 +246,10 @@
             <!-- Encabezado con Botón de Registrar Gasto -->
             <div class="d-flex flex-wrap justify-content-between align-items-center mb-4 gap-3">
                 <div>
-                    <h5 class="text-navy fw-bold mb-1" style="color: var(--color-navy);"><i class="bi bi-wallet2 text-success"></i> Flujo de Caja, Egresos y Socios</h5>
-                    <p class="text-muted small mb-0">Controle ingresos, salidas operativas y distribuciones a socios desde una sola vista.</p>
+                    <h5 class="text-navy fw-bold mb-1" style="color: var(--color-navy);"><i class="bi bi-wallet2 text-success"></i> Flujo de Caja y Egresos</h5>
+                    <p class="text-muted small mb-0">Controle ingresos y salidas operativas desde una sola vista.</p>
                 </div>
                 <div class="d-flex flex-wrap gap-2">
-                    <button class="btn btn-success text-white fw-bold px-4 py-2.5 rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#repartoModal">
-                        <i class="bi bi-people-fill me-2"></i> Registrar Reparto
-                    </button>
                     <button class="btn btn-navy text-white fw-bold px-4 py-2.5 rounded-3 shadow-sm animate__animated animate__pulse animate__infinite" style="animation-duration: 2s;" data-bs-toggle="modal" data-bs-target="#egresoModal">
                         <i class="bi bi-plus-circle-fill me-2"></i> Registrar Gasto Operativo
                     </button>
@@ -346,38 +358,6 @@
                         <span class="small text-muted d-block mb-1">Distribuido a Socios</span>
                         <h3 class="fw-bold m-0 text-danger" id="totalDistribucionesSociosLabel">$ 0 COP</h3>
                     </div>
-                </div>
-            </div>
-
-            <div class="card border-0 shadow-sm p-4 rounded-4 mb-4" style="background: #ffffff;">
-                <div class="d-flex flex-wrap justify-content-between align-items-center mb-3 gap-2">
-                    <div>
-                        <h6 class="text-navy fw-bold mb-1"><i class="bi bi-people-fill text-success"></i> Socios del Proyecto</h6>
-                        <p class="text-muted small mb-0">Control de socios y acumulado recibido por cada uno.</p>
-                    </div>
-                    <button class="btn btn-navy fw-bold px-3 py-2 rounded-3" data-bs-toggle="modal" data-bs-target="#socioModal">
-                        <i class="bi bi-person-plus-fill me-2"></i> Registrar Socio
-                    </button>
-                </div>
-                <div class="table-responsive">
-                    <table class="table table-hover align-middle">
-                        <thead class="bg-light">
-                            <tr>
-                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Socio</th>
-                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Contacto</th>
-                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Participacion</th>
-                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Total Recibido</th>
-                                <th scope="col" style="color: var(--color-navy); font-weight: 600;">Estado</th>
-                            </tr>
-                        </thead>
-                        <tbody id="sociosTableBody">
-                            <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">
-                                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando socios...
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
                 </div>
             </div>
 
@@ -536,8 +516,14 @@
                     </div>
                     <form id="aporteForm">
                         <div class="mb-3">
+                            <label for="aporteSocio" class="form-label text-navy fw-semibold">Socio Inversionista <span class="text-danger">*</span></label>
+                            <select class="form-select" id="aporteSocio">
+                                <option value="">Seleccione un socio...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
                             <label for="aporteNombre" class="form-label text-navy fw-semibold">Nombre del Inversionista <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="aporteNombre" required>
+                            <input type="text" class="form-control" id="aporteNombre" readonly required>
                         </div>
                         <div class="mb-3">
                             <label for="aporteMonto" class="form-label text-navy fw-semibold">Monto del Aporte (COP) <span class="text-danger">*</span></label>
@@ -555,96 +541,6 @@
                             <button type="submit" class="btn btn-success text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarAporte">
                                 <span class="spinner-border spinner-border-sm me-2 d-none" id="aporteSpinner" role="status" aria-hidden="true"></span>
                                 Confirmar Registro
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="socioModal" tabindex="-1" aria-labelledby="socioModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-                <div class="modal-header bg-navy text-white p-3 px-4">
-                    <h5 class="modal-title" id="socioModalLabel" style="font-weight: 700;">
-                        <i class="bi bi-person-plus-fill"></i> Registrar Socio del Proyecto
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div id="socioAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="socioAlertText"></span>
-                    </div>
-                    <form id="socioForm">
-                        <div class="mb-3">
-                            <label for="socioNombre" class="form-label text-navy fw-semibold">Nombre del Socio <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="socioNombre" required>
-                        </div>
-                        <div class="mb-3">
-                            <label for="socioTelefono" class="form-label text-navy fw-semibold">Telefono</label>
-                            <input type="text" class="form-control" id="socioTelefono">
-                        </div>
-                        <div class="mb-3">
-                            <label for="socioCorreo" class="form-label text-navy fw-semibold">Correo</label>
-                            <input type="email" class="form-control" id="socioCorreo">
-                        </div>
-                        <div class="mb-3">
-                            <label for="socioParticipacion" class="form-label text-navy fw-semibold">Participacion (%)</label>
-                            <input type="number" class="form-control" id="socioParticipacion" min="0" max="100" step="0.01">
-                        </div>
-                        <div class="mb-3">
-                            <label for="socioObservaciones" class="form-label text-navy fw-semibold">Observaciones</label>
-                            <textarea class="form-control" id="socioObservaciones" rows="3"></textarea>
-                        </div>
-                        <div class="d-grid mt-4">
-                            <button type="submit" class="btn btn-navy text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarSocio">
-                                <span class="spinner-border spinner-border-sm me-2 d-none" id="socioSpinner" role="status" aria-hidden="true"></span>
-                                Guardar Socio
-                            </button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="modal fade" id="repartoModal" tabindex="-1" aria-labelledby="repartoModalLabel" aria-hidden="true">
-        <div class="modal-dialog modal-lg modal-dialog-centered">
-            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-                <div class="modal-header bg-success text-white p-3 px-4">
-                    <h5 class="modal-title" id="repartoModalLabel" style="font-weight: 700;">
-                        <i class="bi bi-cash-stack"></i> Registrar Reparto a Socios
-                    </h5>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body p-4">
-                    <div id="repartoAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
-                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="repartoAlertText"></span>
-                    </div>
-                    <form id="repartoForm">
-                        <div class="row g-3">
-                            <div class="col-md-4">
-                                <label for="repartoFecha" class="form-label text-navy fw-semibold">Fecha <span class="text-danger">*</span></label>
-                                <input type="date" class="form-control" id="repartoFecha" required>
-                            </div>
-                            <div class="col-md-8">
-                                <label for="repartoReferencia" class="form-label text-navy fw-semibold">Referencia</label>
-                                <input type="text" class="form-control" id="repartoReferencia" placeholder="Ej. Venta lote 13 - abono de 15 millones">
-                            </div>
-                        </div>
-                        <div class="mt-3">
-                            <label for="repartoDescripcion" class="form-label text-navy fw-semibold">Descripcion</label>
-                            <textarea class="form-control" id="repartoDescripcion" rows="2" placeholder="Detalle del reparto"></textarea>
-                        </div>
-                        <div class="mt-4">
-                            <h6 class="fw-bold text-navy mb-3">Montos por Socio</h6>
-                            <div id="repartoSociosContainer" class="d-grid gap-2"></div>
-                        </div>
-                        <div class="d-grid mt-4">
-                            <button type="submit" class="btn btn-success text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarReparto">
-                                <span class="spinner-border spinner-border-sm me-2 d-none" id="repartoSpinner" role="status" aria-hidden="true"></span>
-                                Guardar Reparto
                             </button>
                         </div>
                     </form>

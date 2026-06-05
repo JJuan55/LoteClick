@@ -174,11 +174,20 @@
             background-color: var(--color-blue);
             color: #ffffff;
         }
+
+        .money-cell {
+            white-space: nowrap;
+        }
+
+        .actions-cell {
+            min-width: 190px;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body>
 
-    <!-- Seguridad: Validar sesión del Administrador -->
+    <!-- Seguridad: Validar sesión del Administrador o Contador -->
     <script>
         const activeUser = sessionStorage.getItem("user");
         if (!activeUser) {
@@ -186,8 +195,8 @@
             window.location.href = "index.html";
         } else {
             const user = JSON.parse(activeUser);
-            if (!user.token || user.rol !== "ADMINISTRADOR") {
-                alert("Acceso denegado. Esta sección es exclusiva de Administradores.");
+            if (!user.token || (user.rol !== "ADMINISTRADOR" && user.rol !== "CONTADOR")) {
+                alert("Acceso denegado. Esta sección es para Administradores y Contadores.");
                 window.location.href = "index.html";
             }
         }
@@ -200,10 +209,10 @@
             <span>LoteClick</span>
         </div>
         <ul class="sidebar-menu">
-            <li class="menu-item">
+            <li class="menu-item" id="menuDashboard">
                 <a href="dashboard.html"><i class="bi bi-grid-1x2-fill"></i> Dashboard</a>
             </li>
-            <li class="menu-item">
+            <li class="menu-item" id="menuLotes">
                 <a href="inventario.html"><i class="bi bi-map-fill"></i> Inventario Lotes</a>
             </li>
             <li class="menu-item">
@@ -215,7 +224,7 @@
             <li class="menu-item">
                 <a href="egresos.html"><i class="bi bi-cash-stack"></i> Egresos</a>
             </li>
-            <li class="menu-item">
+            <li class="menu-item" id="menuPersonal">
                 <a href="usuarios.html"><i class="bi bi-people-fill"></i> Personal Interno</a>
             </li>
             <li class="menu-item active">
@@ -242,10 +251,18 @@
         <div class="content-body animate__animated animate__fadeIn">
             
             <div class="d-flex justify-content-between align-items-center mb-4">
-                <h5 class="m-0 fw-bold text-navy" style="color: var(--color-navy);"><i class="bi bi-people-fill text-success"></i> Participación de Capital</h5>
-                <button class="btn btn-navy fw-semibold px-4 py-2 rounded-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#aporteModal">
-                    <i class="bi bi-plus-circle-fill"></i> Inyectar Capital
-                </button>
+                <h5 class="m-0 fw-bold text-navy" style="color: var(--color-navy);"><i class="bi bi-people-fill text-success"></i> Gestión de Socios</h5>
+                <div class="d-flex flex-wrap gap-2">
+                    <button class="btn btn-outline-success fw-semibold px-4 py-2 rounded-3 shadow-sm" id="btnNuevoReparto" data-bs-toggle="modal" data-bs-target="#repartoModal">
+                        <i class="bi bi-cash-stack"></i> Registrar Reparto
+                    </button>
+                    <button class="btn btn-success fw-semibold px-4 py-2 rounded-3 shadow-sm" id="btnNuevoAporte" data-bs-toggle="modal" data-bs-target="#aporteModal">
+                        <i class="bi bi-cash-coin"></i> Registrar Aporte
+                    </button>
+                    <button class="btn btn-navy fw-semibold px-4 py-2 rounded-3 shadow-sm" id="btnNuevoSocio" data-bs-toggle="modal" data-bs-target="#socioModal">
+                        <i class="bi bi-person-plus-fill"></i> Registrar Socio
+                    </button>
+                </div>
             </div>
 
             <!-- Alertas -->
@@ -259,16 +276,17 @@
                     <table class="table table-custom table-hover m-0">
                         <thead>
                             <tr>
-                                <th>Nombre del Socio</th>
-                                <th>Capital Aportado (COP)</th>
-                                <th>Participación Porcentual</th>
+                                <th>Socio</th>
+                                <th>Total Invertido</th>
+                                <th>Total Recibido</th>
+                                <th>Saldo por Recuperar</th>
                                 <th>Estado</th>
-                                <th>Observaciones</th>
+                                <th class="text-end">Acciones</th>
                             </tr>
                         </thead>
                         <tbody id="sociosTableBody">
                             <tr>
-                                <td colspan="5" class="text-center py-5 text-muted">
+                                <td colspan="6" class="text-center py-5 text-muted">
                                     <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando inversionistas...
                                 </td>
                             </tr>
@@ -279,13 +297,58 @@
         </div>
     </div>
 
-    <!-- Modal Inyectar Capital -->
+    <!-- Modal Registrar Aporte -->
     <div class="modal fade" id="aporteModal" tabindex="-1" aria-labelledby="aporteModalLabel" aria-hidden="true">
         <div class="modal-dialog modal-dialog-centered">
             <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
-                <div class="modal-header bg-navy text-white p-3 px-4">
+                <div class="modal-header bg-success text-white p-3 px-4">
                     <h5 class="modal-title" id="aporteModalLabel" style="font-weight: 700;">
-                        <i class="bi bi-bank2"></i> Registrar Inyección de Capital
+                        <i class="bi bi-cash-coin"></i> Registrar Aporte de Socio
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="aporteAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="aporteAlertText"></span>
+                    </div>
+                    <form id="aporteForm">
+                        <div class="mb-3">
+                            <label for="aporteSocio" class="form-label text-navy fw-semibold">Socio <span class="text-danger">*</span></label>
+                            <select class="form-select" id="aporteSocio" required>
+                                <option value="">Seleccione un socio...</option>
+                            </select>
+                        </div>
+                        <div class="mb-3">
+                            <label for="aporteMonto" class="form-label text-navy fw-semibold">Monto del Aporte (COP) <span class="text-danger">*</span></label>
+                            <input type="number" class="form-control fw-bold text-success fs-5" id="aporteMonto" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="aporteFecha" class="form-label text-navy fw-semibold">Fecha del Aporte <span class="text-danger">*</span></label>
+                            <input type="date" class="form-control" id="aporteFecha" required>
+                        </div>
+                        <div class="mb-3">
+                            <label for="aporteDescripcion" class="form-label text-navy fw-semibold">Descripción</label>
+                            <textarea class="form-control" id="aporteDescripcion" rows="3"></textarea>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarAporte">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="aporteSpinner" role="status" aria-hidden="true"></span>
+                                Guardar Aporte
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Crear / Editar Socio -->
+    <div class="modal fade" id="socioModal" tabindex="-1" aria-labelledby="socioModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-navy text-white p-3 px-4">
+                    <h5 class="modal-title" id="socioModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-person-plus-fill"></i> Registrar Socio
                     </h5>
                     <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
@@ -294,28 +357,82 @@
                         <i class="bi bi-exclamation-triangle-fill"></i> <span id="modalAlertText"></span>
                     </div>
                     
-                    <form id="aporteCapitalForm">
+                    <form id="socioForm">
+                        <input type="hidden" id="socioId">
                         <div class="mb-3">
-                            <label for="apoNombre" class="form-label text-navy fw-semibold">Nombre del Socio / Inversionista <span class="text-danger">*</span></label>
-                            <input type="text" class="form-control" id="apoNombre" placeholder="Ej. Mauricio Almaros" required>
+                            <label for="socioNombre" class="form-label text-navy fw-semibold">Nombre del Socio <span class="text-danger">*</span></label>
+                            <input type="text" class="form-control" id="socioNombre" required>
                         </div>
                         <div class="mb-3">
-                            <label for="apoMonto" class="form-label text-navy fw-semibold">Monto del Aporte (COP) <span class="text-danger">*</span></label>
-                            <input type="number" class="form-control fw-bold text-success fs-5" id="apoMonto" placeholder="Monto en COP" required>
+                            <label for="socioTelefono" class="form-label text-navy fw-semibold">Teléfono</label>
+                            <input type="text" class="form-control" id="socioTelefono">
                         </div>
                         <div class="mb-3">
-                            <label for="apoFecha" class="form-label text-navy fw-semibold">Fecha de Aporte <span class="text-danger">*</span></label>
-                            <input type="date" class="form-control" id="apoFecha" required>
+                            <label for="socioCorreo" class="form-label text-navy fw-semibold">Correo</label>
+                            <input type="email" class="form-control" id="socioCorreo">
                         </div>
                         <div class="mb-3">
-                            <label for="apoDesc" class="form-label text-navy fw-semibold">Observaciones / Detalles</label>
-                            <textarea class="form-control" id="apoDesc" rows="3" placeholder="Detalles de la transferencia bancaria, etc..."></textarea>
+                            <label for="socioParticipacion" class="form-label text-navy fw-semibold">Participación (%)</label>
+                            <input type="number" class="form-control" id="socioParticipacion" min="0" max="100" step="0.01">
+                        </div>
+                        <div class="mb-3">
+                            <label for="socioObservaciones" class="form-label text-navy fw-semibold">Observaciones</label>
+                            <textarea class="form-control" id="socioObservaciones" rows="3"></textarea>
+                        </div>
+                        <div class="form-check form-switch mb-3 d-none" id="socioActivoGroup">
+                            <input class="form-check-input" type="checkbox" role="switch" id="socioActivo">
+                            <label class="form-check-label text-navy fw-semibold" for="socioActivo">Socio activo</label>
                         </div>
 
                         <div class="d-grid mt-4">
-                            <button type="submit" class="btn btn-success text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarAporte">
-                                <span class="spinner-border spinner-border-sm me-2 d-none" id="aporteSpinner" role="status" aria-hidden="true"></span>
-                                Confirmar Aporte
+                            <button type="submit" class="btn btn-navy text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarSocio">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="socioSpinner" role="status" aria-hidden="true"></span>
+                                Guardar Socio
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Registrar Reparto -->
+    <div class="modal fade" id="repartoModal" tabindex="-1" aria-labelledby="repartoModalLabel" aria-hidden="true">
+        <div class="modal-dialog modal-lg modal-dialog-centered">
+            <div class="modal-content border-0 shadow-lg" style="border-radius: 16px; overflow: hidden;">
+                <div class="modal-header bg-success text-white p-3 px-4">
+                    <h5 class="modal-title" id="repartoModalLabel" style="font-weight: 700;">
+                        <i class="bi bi-cash-stack"></i> Registrar Reparto a Socios
+                    </h5>
+                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body p-4">
+                    <div id="repartoAlert" class="alert alert-danger py-2 d-none align-items-center gap-2" role="alert">
+                        <i class="bi bi-exclamation-triangle-fill"></i> <span id="repartoAlertText"></span>
+                    </div>
+                    <form id="repartoForm">
+                        <div class="row g-3">
+                            <div class="col-md-4">
+                                <label for="repartoFecha" class="form-label text-navy fw-semibold">Fecha <span class="text-danger">*</span></label>
+                                <input type="date" class="form-control" id="repartoFecha" required>
+                            </div>
+                            <div class="col-md-8">
+                                <label for="repartoReferencia" class="form-label text-navy fw-semibold">Referencia</label>
+                                <input type="text" class="form-control" id="repartoReferencia" placeholder="Ej. Venta lote 13 - abono de 15 millones">
+                            </div>
+                        </div>
+                        <div class="mt-3">
+                            <label for="repartoDescripcion" class="form-label text-navy fw-semibold">Descripción</label>
+                            <textarea class="form-control" id="repartoDescripcion" rows="2" placeholder="Detalle del reparto"></textarea>
+                        </div>
+                        <div class="mt-4">
+                            <h6 class="fw-bold text-navy mb-3">Montos por Socio</h6>
+                            <div id="repartoSociosContainer" class="d-grid gap-2"></div>
+                        </div>
+                        <div class="d-grid mt-4">
+                            <button type="submit" class="btn btn-success text-white p-2.5 rounded-3 fw-semibold" id="btnConfirmarReparto">
+                                <span class="spinner-border spinner-border-sm me-2 d-none" id="repartoSpinner" role="status" aria-hidden="true"></span>
+                                Guardar Reparto
                             </button>
                         </div>
                     </form>
@@ -331,23 +448,30 @@
         document.addEventListener("DOMContentLoaded", () => {
             const user = getActiveUser();
             if (user) {
-                document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (Admin)`;
+                document.getElementById("userNameLabel").innerHTML = `<i class="bi bi-person-fill"></i> ${user.nombreCompleto} (${user.rol})`;
+                if (user.rol === "CONTADOR") {
+                    document.getElementById("menuDashboard").style.display = "none";
+                    document.getElementById("menuLotes").style.display = "none";
+                    document.getElementById("menuVentas").style.display = "none";
+                    document.getElementById("menuPersonal").style.display = "none";
+                }
             }
-
-            // Set default date to today
-            document.getElementById("apoFecha").value = new Date().toISOString().substring(0, 10);
 
             document.getElementById("logoutBtn").addEventListener("click", () => {
                 sessionStorage.clear();
                 window.location.href = "index.html";
             });
 
+            const socioModal = new bootstrap.Modal(document.getElementById("socioModal"));
             const aporteModal = new bootstrap.Modal(document.getElementById("aporteModal"));
+            const repartoModal = new bootstrap.Modal(document.getElementById("repartoModal"));
             const sociosTableBody = document.getElementById("sociosTableBody");
-            const aporteCapitalForm = document.getElementById("aporteCapitalForm");
+            const socioForm = document.getElementById("socioForm");
+            const aporteForm = document.getElementById("aporteForm");
+            const repartoForm = document.getElementById("repartoForm");
             const modalAlert = document.getElementById("modalAlert");
             const modalAlertText = document.getElementById("modalAlertText");
-            const aporteSpinner = document.getElementById("aporteSpinner");
+            let sociosCache = [];
 
             function formatCOP(val) {
                 return new Intl.NumberFormat('es-CO', {
@@ -358,31 +482,143 @@
                 }).format(val || 0);
             }
 
-            // Cargar socios
+            async function parseApiResponse(response) {
+                const text = await response.text();
+                return text ? JSON.parse(text) : {};
+            }
+
+            function limpiarFormularioSocio() {
+                socioForm.reset();
+                document.getElementById("socioId").value = "";
+                document.getElementById("socioActivo").checked = true;
+                document.getElementById("socioActivoGroup").classList.add("d-none");
+                document.getElementById("socioModalLabel").innerHTML = `<i class="bi bi-person-plus-fill"></i> Registrar Socio`;
+                document.getElementById("btnConfirmarSocio").innerHTML = `<span class="spinner-border spinner-border-sm me-2 d-none" id="socioSpinner" role="status" aria-hidden="true"></span> Guardar Socio`;
+                modalAlert.classList.add("d-none");
+            }
+
+            function prepararFormularioAporte() {
+                aporteForm.reset();
+                document.getElementById("aporteFecha").value = new Date().toISOString().substring(0, 10);
+                document.getElementById("aporteAlert").classList.add("d-none");
+                renderizarSelectorAporte();
+            }
+
+            function prepararFormularioReparto() {
+                repartoForm.reset();
+                document.getElementById("repartoFecha").value = new Date().toISOString().substring(0, 10);
+                document.getElementById("repartoAlert").classList.add("d-none");
+                renderizarFormularioReparto();
+            }
+
+            function renderizarSelectorAporte() {
+                const select = document.getElementById("aporteSocio");
+                const sociosActivos = sociosCache.filter((socio) => socio.activo);
+                select.innerHTML = `<option value="">Seleccione un socio...</option>`;
+                sociosActivos.forEach((socio) => {
+                    const option = document.createElement("option");
+                    option.value = socio.id;
+                    option.textContent = socio.nombre;
+                    select.appendChild(option);
+                });
+            }
+
+            function renderizarFormularioReparto() {
+                const container = document.getElementById("repartoSociosContainer");
+                const sociosActivos = sociosCache.filter((socio) => socio.activo);
+
+                if (sociosActivos.length === 0) {
+                    container.innerHTML = `
+                        <div class="alert alert-light border text-muted mb-0">
+                            Registre al menos un socio activo para hacer repartos.
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = sociosActivos.map((socio) => `
+                    <div class="border rounded-3 p-3 bg-light">
+                        <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-2">
+                            <div>
+                                <div class="fw-bold text-navy">${socio.nombre}</div>
+                                <div class="small text-muted">${socio.porcentajeParticipacion != null ? `${socio.porcentajeParticipacion}% participación` : "Participación sin definir"}</div>
+                            </div>
+                            <div class="small text-success fw-semibold">Recibido: ${formatCOP(socio.totalRecibido || 0)}</div>
+                        </div>
+                        <input type="number" class="form-control reparto-monto" data-socio-id="${socio.id}" placeholder="Monto a entregar a ${socio.nombre}">
+                    </div>
+                `).join("");
+            }
+
+            function abrirEdicionSocio(socio) {
+                document.getElementById("socioId").value = socio.id;
+                document.getElementById("socioNombre").value = socio.nombre || "";
+                document.getElementById("socioTelefono").value = socio.telefono || "";
+                document.getElementById("socioCorreo").value = socio.correo || "";
+                document.getElementById("socioParticipacion").value = socio.porcentajeParticipacion ?? "";
+                document.getElementById("socioObservaciones").value = socio.observaciones || "";
+                document.getElementById("socioActivo").checked = !!socio.activo;
+                document.getElementById("socioActivoGroup").classList.remove("d-none");
+                document.getElementById("socioModalLabel").innerHTML = `<i class="bi bi-pencil-square"></i> Editar Socio`;
+                document.getElementById("btnConfirmarSocio").innerHTML = `<span class="spinner-border spinner-border-sm me-2 d-none" id="socioSpinner" role="status" aria-hidden="true"></span> Guardar Cambios`;
+                modalAlert.classList.add("d-none");
+                socioModal.show();
+            }
+
+            function registrarEventosTabla() {
+                document.querySelectorAll(".btn-editar-socio").forEach((btn) => {
+                    btn.addEventListener("click", () => {
+                        const socio = sociosCache.find((item) => item.id === btn.dataset.id);
+                        if (socio) abrirEdicionSocio(socio);
+                    });
+                });
+
+                document.querySelectorAll(".btn-eliminar-socio").forEach((btn) => {
+                    btn.addEventListener("click", async () => {
+                        if (!confirm(`¿Eliminar a ${btn.dataset.nombre}? Sus aportes y repartos históricos se conservan.`)) {
+                            return;
+                        }
+                        await eliminarSocio(btn.dataset.id);
+                    });
+                });
+
+                document.querySelectorAll(".btn-reactivar-socio").forEach((btn) => {
+                    btn.addEventListener("click", async () => {
+                        const socio = sociosCache.find((item) => item.id === btn.dataset.id);
+                        if (socio) {
+                            await guardarSocio(socio, true);
+                        }
+                    });
+                });
+            }
+
             async function cargarSocios() {
                 try {
                     const response = await fetch("/api/socios", {
                         headers: getAuthHeaders()
                     });
-                    const data = await response.json();
+                    const data = await parseApiResponse(response);
 
                     if (!response.ok) {
                         throw new Error(data.error || "No se pudo obtener la lista de socios.");
                     }
 
+                    sociosCache = Array.isArray(data) ? data : [];
                     sociosTableBody.innerHTML = "";
-                    if (data.length === 0) {
+                    if (sociosCache.length === 0) {
                         sociosTableBody.innerHTML = `
                             <tr>
-                                <td colspan="5" class="text-center py-4 text-muted">
+                                <td colspan="6" class="text-center py-4 text-muted">
                                     No hay socios registrados en el sistema.
                                 </td>
                             </tr>
                         `;
+                        renderizarSelectorAporte();
+                        renderizarFormularioReparto();
                         return;
                     }
 
-                    data.forEach(s => {
+                    sociosCache.forEach(s => {
                         const tr = document.createElement("tr");
                         tr.className = "animate__animated animate__fadeIn";
 
@@ -391,20 +627,38 @@
                             : `<span class="badge bg-danger bg-opacity-10 text-danger fw-bold p-2"><i class="bi bi-x-circle-fill"></i> Inactivo</span>`;
 
                         tr.innerHTML = `
-                            <td class="fw-semibold text-navy"><i class="bi bi-person-fill text-muted"></i> ${s.nombre}</td>
-                            <td class="fw-bold text-navy fs-6">${formatCOP(s.totalAportado)}</td>
-                            <td class="fw-bold text-success fs-6">${s.porcentajeParticipacion.toFixed(2)} %</td>
+                            <td>
+                                <div class="fw-semibold text-navy"><i class="bi bi-person-fill text-muted"></i> ${s.nombre}</div>
+                                <div class="small text-muted">${s.telefono || "Sin teléfono"} · ${s.correo || "Sin correo"}</div>
+                                <div class="small text-muted">${s.porcentajeParticipacion != null ? `${s.porcentajeParticipacion}% participación` : "Participación sin definir"}</div>
+                            </td>
+                            <td class="fw-bold text-success money-cell">${formatCOP(s.totalInvertido || 0)}</td>
+                            <td class="fw-bold text-success money-cell">${formatCOP(s.totalRecibido || 0)}</td>
+                            <td class="fw-bold money-cell ${(s.saldoPorRecuperar || 0) > 0 ? "text-danger" : "text-success"}">${formatCOP(s.saldoPorRecuperar || 0)}</td>
                             <td>${statusBadge}</td>
-                            <td class="text-muted small">${s.observaciones || "-"}</td>
+                            <td class="text-end actions-cell">
+                                <div class="btn-group btn-group-sm" role="group">
+                                    <button type="button" class="btn btn-outline-primary btn-editar-socio" data-id="${s.id}">
+                                        <i class="bi bi-pencil-square"></i> Editar
+                                    </button>
+                                    ${s.activo
+                                        ? `<button type="button" class="btn btn-outline-danger btn-eliminar-socio" data-id="${s.id}" data-nombre="${s.nombre}"><i class="bi bi-trash"></i> Eliminar</button>`
+                                        : `<button type="button" class="btn btn-outline-success btn-reactivar-socio" data-id="${s.id}"><i class="bi bi-arrow-clockwise"></i> Reactivar</button>`
+                                    }
+                                </div>
+                            </td>
                         `;
                         sociosTableBody.appendChild(tr);
                     });
+                    registrarEventosTabla();
+                    renderizarSelectorAporte();
+                    renderizarFormularioReparto();
 
                 } catch (error) {
                     console.error(error);
                     sociosTableBody.innerHTML = `
                         <tr>
-                            <td colspan="5" class="text-center py-4 text-danger">
+                            <td colspan="6" class="text-center py-4 text-danger">
                                 <i class="bi bi-exclamation-triangle-fill"></i> Error al cargar control de socios.
                             </td>
                         </tr>
@@ -412,61 +666,208 @@
                 }
             }
 
-            // Registrar aporte
-            aporteCapitalForm.addEventListener("submit", async (e) => {
+            async function eliminarSocio(socioId) {
+                try {
+                    const response = await fetch(`/api/socios/${socioId}`, {
+                        method: "DELETE",
+                        headers: getAuthHeaders()
+                    });
+                    const data = await parseApiResponse(response);
+                    if (!response.ok) {
+                        throw new Error(data.error || "No se pudo eliminar el socio.");
+                    }
+                    await cargarSocios();
+                } catch (error) {
+                    alert(error.message || "Error al eliminar el socio.");
+                }
+            }
+
+            async function guardarSocio(payload, reactivar = false) {
+                const socioId = payload.id || document.getElementById("socioId").value;
+                const body = reactivar ? {
+                    nombre: payload.nombre,
+                    telefono: payload.telefono,
+                    correo: payload.correo,
+                    porcentajeParticipacion: payload.porcentajeParticipacion,
+                    observaciones: payload.observaciones,
+                    activo: true
+                } : payload;
+
+                const response = await fetch(socioId ? `/api/socios/${socioId}` : "/api/socios", {
+                    method: socioId ? "PUT" : "POST",
+                    headers: getAuthHeaders({
+                        "Content-Type": "application/json"
+                    }),
+                    body: JSON.stringify(body)
+                });
+                const data = await parseApiResponse(response);
+                if (!response.ok) {
+                    throw new Error(data.error || "No se pudo guardar el socio.");
+                }
+            }
+
+            document.getElementById("btnNuevoSocio").addEventListener("click", limpiarFormularioSocio);
+            document.getElementById("btnNuevoAporte").addEventListener("click", prepararFormularioAporte);
+            document.getElementById("btnNuevoReparto").addEventListener("click", prepararFormularioReparto);
+
+            socioForm.addEventListener("submit", async (e) => {
                 e.preventDefault();
                 modalAlert.classList.add("d-none");
-                
-                const nombreInversionista = document.getElementById("apoNombre").value.trim();
-                const monto = document.getElementById("apoMonto").value;
-                const fechaAporte = document.getElementById("apoFecha").value;
-                const descripcion = document.getElementById("apoDesc").value.trim();
+                const spinner = document.getElementById("socioSpinner");
+                const btn = document.getElementById("btnConfirmarSocio");
+                const socioId = document.getElementById("socioId").value;
+                const nombre = document.getElementById("socioNombre").value.trim();
 
-                if (monto <= 0) {
-                    modalAlertText.textContent = "El monto del aporte debe ser superior a cero.";
+                if (!nombre) {
+                    modalAlertText.textContent = "El nombre del socio es obligatorio.";
                     modalAlert.classList.remove("d-none");
                     return;
                 }
 
-                aporteSpinner.classList.remove("d-none");
+                spinner.classList.remove("d-none");
+                btn.disabled = true;
 
                 try {
-                    const response = await fetch("/api/socios/aporte", {
+                    await guardarSocio({
+                        id: socioId || null,
+                        nombre,
+                        telefono: document.getElementById("socioTelefono").value.trim(),
+                        correo: document.getElementById("socioCorreo").value.trim(),
+                        porcentajeParticipacion: document.getElementById("socioParticipacion").value
+                            ? parseFloat(document.getElementById("socioParticipacion").value)
+                            : null,
+                        observaciones: document.getElementById("socioObservaciones").value.trim(),
+                        activo: document.getElementById("socioActivo").checked
+                    });
+                    socioModal.hide();
+                    limpiarFormularioSocio();
+                    await cargarSocios();
+                } catch (error) {
+                    modalAlertText.textContent = error.message;
+                    modalAlert.classList.remove("d-none");
+                } finally {
+                    spinner.classList.add("d-none");
+                    btn.disabled = false;
+                }
+            });
+
+            aporteForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+
+                const socioId = document.getElementById("aporteSocio").value;
+                const monto = document.getElementById("aporteMonto").value;
+                const fechaAporte = document.getElementById("aporteFecha").value;
+                const descripcion = document.getElementById("aporteDescripcion").value.trim();
+                const spinner = document.getElementById("aporteSpinner");
+                const btn = document.getElementById("btnConfirmarAporte");
+                const alertDiv = document.getElementById("aporteAlert");
+                const alertText = document.getElementById("aporteAlertText");
+
+                if (!socioId || !monto || !fechaAporte || parseFloat(monto) <= 0) {
+                    alertText.textContent = "Seleccione un socio e ingrese un monto superior a cero.";
+                    alertDiv.classList.remove("d-none");
+                    return;
+                }
+
+                spinner.classList.remove("d-none");
+                btn.disabled = true;
+                alertDiv.classList.add("d-none");
+
+                const socio = sociosCache.find((item) => item.id === socioId);
+                try {
+                    const response = await fetch("/api/ingresos/inversionistas", {
                         method: "POST",
                         headers: getAuthHeaders({
                             "Content-Type": "application/json"
                         }),
                         body: JSON.stringify({
-                            nombreInversionista,
-                            monto,
+                            socioId,
+                            nombreInversionista: socio ? socio.nombre : "",
+                            monto: parseFloat(monto),
                             fechaAporte,
                             descripcion
                         })
                     });
-
-                    const data = await response.json();
-
+                    const data = await parseApiResponse(response);
                     if (!response.ok) {
-                        throw new Error(data.error || "Error al registrar inyección de capital.");
+                        throw new Error(data.error || "No se pudo registrar el aporte.");
                     }
-
-                    // Éxito
-                    aporteCapitalForm.reset();
-                    document.getElementById("apoFecha").value = new Date().toISOString().substring(0, 10);
                     aporteModal.hide();
-                    cargarSocios();
-
+                    prepararFormularioAporte();
+                    await cargarSocios();
                 } catch (error) {
-                    console.error(error);
-                    modalAlertText.textContent = error.message;
-                    modalAlert.classList.remove("d-none");
+                    alertText.textContent = error.message;
+                    alertDiv.classList.remove("d-none");
                 } finally {
-                    aporteSpinner.classList.add("d-none");
+                    spinner.classList.add("d-none");
+                    btn.disabled = false;
+                }
+            });
+
+            repartoForm.addEventListener("submit", async (e) => {
+                e.preventDefault();
+
+                const fechaDistribucion = document.getElementById("repartoFecha").value;
+                const referencia = document.getElementById("repartoReferencia").value.trim();
+                const descripcion = document.getElementById("repartoDescripcion").value.trim();
+                const spinner = document.getElementById("repartoSpinner");
+                const btn = document.getElementById("btnConfirmarReparto");
+                const alertDiv = document.getElementById("repartoAlert");
+                const alertText = document.getElementById("repartoAlertText");
+
+                const distribuciones = Array.from(document.querySelectorAll(".reparto-monto"))
+                    .map((input) => ({
+                        socioId: input.dataset.socioId,
+                        monto: input.value ? parseFloat(input.value) : 0
+                    }))
+                    .filter((item) => item.monto > 0);
+
+                if (!fechaDistribucion) {
+                    alertText.textContent = "La fecha del reparto es obligatoria.";
+                    alertDiv.classList.remove("d-none");
+                    return;
+                }
+                if (distribuciones.length === 0) {
+                    alertText.textContent = "Debe ingresar al menos un monto para repartir.";
+                    alertDiv.classList.remove("d-none");
+                    return;
+                }
+
+                spinner.classList.remove("d-none");
+                btn.disabled = true;
+                alertDiv.classList.add("d-none");
+
+                try {
+                    const response = await fetch("/api/distribuciones-socios", {
+                        method: "POST",
+                        headers: getAuthHeaders({
+                            "Content-Type": "application/json"
+                        }),
+                        body: JSON.stringify({
+                            fechaDistribucion,
+                            referencia,
+                            descripcion,
+                            distribuciones
+                        })
+                    });
+                    const data = await parseApiResponse(response);
+                    if (!response.ok) {
+                        throw new Error(data.error || "No se pudo registrar el reparto.");
+                    }
+                    repartoModal.hide();
+                    prepararFormularioReparto();
+                    await cargarSocios();
+                } catch (error) {
+                    alertText.textContent = error.message;
+                    alertDiv.classList.remove("d-none");
+                } finally {
+                    spinner.classList.add("d-none");
+                    btn.disabled = false;
                 }
             });
 
             cargarSocios();
         });
-    </script>
+</script>
 </body>
 </html>

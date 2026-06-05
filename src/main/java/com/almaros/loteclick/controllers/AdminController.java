@@ -11,7 +11,6 @@ import org.springframework.security.crypto.bcrypt.BCrypt;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.time.LocalDate;
 import java.time.format.TextStyle;
 import java.util.*;
@@ -41,12 +40,6 @@ public class AdminController {
 
     @Autowired
     private RolRepository rolRepository;
-
-    @Autowired
-    private SocioProyectoRepository socioProyectoRepository;
-
-    @Autowired
-    private AporteInversionistaRepository aporteInversionistaRepository;
 
     @Autowired
     private LoteRepository loteRepository;
@@ -275,132 +268,6 @@ public class AdminController {
     }
 
     /**
-     * POST /api/socios/aporte
-     * Registrar inyecciones de capital de socios inversionistas.
-     */
-    @PostMapping("/socios/aporte")
-    public ResponseEntity<?> registrarAporteSocio(@RequestHeader("Authorization") String authorizationHeader,
-                                                  @RequestBody Map<String, Object> payload) {
-        try {
-            Usuario adminUser = sessionService.obtenerUsuarioAutenticado(
-                    authorizationHeader,
-                    List.of("ADMINISTRADOR"),
-                    "Acceso denegado. Solo el Administrador puede registrar aportes de capital."
-            );
-
-            String nombreInversionista = (String) payload.get("nombreInversionista");
-            BigDecimal monto = new BigDecimal(payload.get("monto").toString());
-            LocalDate fechaAporte = LocalDate.parse(payload.get("fechaAporte").toString());
-            String descripcion = (String) payload.get("descripcion");
-
-            if (nombreInversionista == null || nombreInversionista.trim().isEmpty() || monto.compareTo(BigDecimal.ZERO) <= 0) {
-                return ResponseEntity.badRequest().body(Map.of("error", "El nombre del inversionista y un monto superior a cero son obligatorios."));
-            }
-
-            String nombreTrimmed = nombreInversionista.trim();
-
-            // Buscar o crear el socio en 'socios_proyecto'
-            Optional<SocioProyecto> socioOpt = socioProyectoRepository.findAll().stream()
-                    .filter(s -> s.getNombre().equalsIgnoreCase(nombreTrimmed))
-                    .findFirst();
-
-            SocioProyecto socio;
-            if (socioOpt.isPresent()) {
-                socio = socioOpt.get();
-            } else {
-                socio = new SocioProyecto();
-                socio.setNombre(nombreTrimmed);
-                socio.setActivo(true);
-                socio.setPorcentajeParticipacion(BigDecimal.ZERO);
-                socio = socioProyectoRepository.save(socio);
-            }
-
-            // Registrar el aporte
-            AporteInversionista aporte = new AporteInversionista();
-            aporte.setNombreInversionista(nombreTrimmed);
-            aporte.setMonto(monto);
-            aporte.setFechaAporte(fechaAporte);
-            aporte.setDescripcion(descripcion);
-            aporte.setRegistradoPor(adminUser);
-
-            aporteInversionistaRepository.save(aporte);
-
-            // Recalcular dinámicamente la participación de todos los socios
-            recalcularParticipacionSocios();
-
-            // Registrar en auditoría
-            auditService.registrarAccion(
-                    adminUser,
-                    "REGISTRAR_APORTE",
-                    String.format("El Administrador %s registró un aporte de capital por %s COP para el socio %s",
-                            adminUser.getNombreCompleto(), monto.setScale(0).toString(), nombreTrimmed)
-            );
-
-            return ResponseEntity.status(HttpStatus.CREATED).body(Map.of(
-                    "id", aporte.getId(),
-                    "nombreInversionista", aporte.getNombreInversionista(),
-                    "monto", aporte.getMonto(),
-                    "fechaAporte", aporte.getFechaAporte().toString()
-            ));
-
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            e.printStackTrace();
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Error interno al registrar el aporte del socio: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * GET /api/socios
-     * Retorna el listado de socios con sus aportes consolidados y participación porcentual.
-     */
-    @GetMapping("/socios")
-    public ResponseEntity<?> listarSocios(@RequestHeader("Authorization") String authorizationHeader) {
-        try {
-            sessionService.obtenerUsuarioAutenticado(
-                    authorizationHeader,
-                    List.of("ADMINISTRADOR", "CONTADOR"),
-                    "Acceso denegado. Solo el Administrador o Contador pueden listar socios inversionistas."
-            );
-
-            // Aseguramos recalcular antes de listar para evitar inconsistencias
-            recalcularParticipacionSocios();
-
-            List<SocioProyecto> socios = socioProyectoRepository.findAllByOrderByNombreAsc();
-            List<AporteInversionista> aportes = aporteInversionistaRepository.findAll();
-            List<Map<String, Object>> response = new ArrayList<>();
-
-            for (SocioProyecto s : socios) {
-                // Sumar aportes de este socio
-                BigDecimal totalSocio = aportes.stream()
-                        .filter(a -> a.getNombreInversionista().equalsIgnoreCase(s.getNombre()))
-                        .map(AporteInversionista::getMonto)
-                        .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-                Map<String, Object> m = new HashMap<>();
-                m.put("id", s.getId());
-                m.put("nombre", s.getNombre());
-                m.put("telefono", s.getTelefono() != null ? s.getTelefono() : "");
-                m.put("correo", s.getCorreo() != null ? s.getCorreo() : "");
-                m.put("totalAportado", totalSocio);
-                m.put("porcentajeParticipacion", s.getPorcentajeParticipacion());
-                m.put("activo", s.getActivo());
-                m.put("observaciones", s.getObservaciones() != null ? s.getObservaciones() : "");
-                response.add(m);
-            }
-
-            return ResponseEntity.ok(response);
-        } catch (IllegalStateException e) {
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Error al listar socios: " + e.getMessage()));
-        }
-    }
-
-    /**
      * POST /api/lotes
      * Registro de un nuevo lote por el Administrador.
      */
@@ -529,35 +396,6 @@ public class AdminController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Error al consultar la bitácora: " + e.getMessage()));
-        }
-    }
-
-    /**
-     * Método auxiliar para recalcular dinámicamente las participaciones de capital
-     */
-    private void recalcularParticipacionSocios() {
-        List<SocioProyecto> socios = socioProyectoRepository.findAll();
-        List<AporteInversionista> aportes = aporteInversionistaRepository.findAll();
-
-        BigDecimal totalAportesGlobal = aportes.stream()
-                .map(AporteInversionista::getMonto)
-                .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-        for (SocioProyecto s : socios) {
-            BigDecimal totalSocio = aportes.stream()
-                    .filter(a -> a.getNombreInversionista().equalsIgnoreCase(s.getNombre()))
-                    .map(AporteInversionista::getMonto)
-                    .reduce(BigDecimal.ZERO, BigDecimal::add);
-
-            BigDecimal porcentaje = BigDecimal.ZERO;
-            if (totalAportesGlobal.compareTo(BigDecimal.ZERO) > 0) {
-                porcentaje = totalSocio
-                        .multiply(new BigDecimal("100"))
-                        .divide(totalAportesGlobal, 2, RoundingMode.HALF_UP);
-            }
-
-            s.setPorcentajeParticipacion(porcentaje);
-            socioProyectoRepository.save(s);
         }
     }
 

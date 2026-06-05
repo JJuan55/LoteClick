@@ -356,10 +356,23 @@ public class FinanzasService {
 
     @Transactional(rollbackFor = Exception.class)
     public AporteInversionista registrarAporteInversionista(String correoUsuario, String nombreInversionista,
-                                                            BigDecimal monto, LocalDate fechaAporte, String descripcion) {
+                                                            UUID socioId, BigDecimal monto, LocalDate fechaAporte,
+                                                            String descripcion) {
         Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
         validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
                 "No tiene permisos para registrar aportes de inversionistas.");
+
+        SocioProyecto socio = null;
+        if (socioId == null) {
+            throw new IllegalArgumentException("Debe seleccionar un socio para registrar el aporte.");
+        }
+
+        socio = socioProyectoRepository.findById(socioId)
+                .orElseThrow(() -> new IllegalArgumentException("Socio no encontrado: " + socioId));
+        if (socio.getActivo() != null && !socio.getActivo()) {
+            throw new IllegalArgumentException("No se puede registrar un aporte a un socio inactivo: " + socio.getNombre());
+        }
+        nombreInversionista = socio.getNombre();
 
         if (nombreInversionista == null || nombreInversionista.trim().isEmpty()) {
             throw new IllegalArgumentException("El nombre del inversionista es obligatorio.");
@@ -373,6 +386,7 @@ public class FinanzasService {
 
         AporteInversionista aporte = new AporteInversionista();
         aporte.setNombreInversionista(nombreInversionista.trim());
+        aporte.setSocio(socio);
         aporte.setMonto(monto);
         aporte.setFechaAporte(fechaAporte);
         aporte.setDescripcion(descripcion);
@@ -425,6 +439,7 @@ public class FinanzasService {
             item.put("tipo", "APORTE_CAPITAL");
             item.put("referencia", aporte.getNombreInversionista());
             item.put("detalle", aporte.getDescripcion() != null ? aporte.getDescripcion() : "Aporte de capital");
+            item.put("socioId", aporte.getSocio() != null ? aporte.getSocio().getId() : null);
             item.put("monto", aporte.getMonto());
             movimientos.add(item);
         }
@@ -491,6 +506,48 @@ public class FinanzasService {
         return socioProyectoRepository.save(socio);
     }
 
+    @Transactional(rollbackFor = Exception.class)
+    public SocioProyecto actualizarSocioProyecto(String correoUsuario, UUID socioId, String nombre, String telefono,
+                                                 String correo, BigDecimal porcentajeParticipacion,
+                                                 String observaciones, Boolean activo) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para editar socios.");
+
+        SocioProyecto socio = socioProyectoRepository.findById(socioId)
+                .orElseThrow(() -> new IllegalArgumentException("Socio no encontrado."));
+
+        if (nombre == null || nombre.trim().isEmpty()) {
+            throw new IllegalArgumentException("El nombre del socio es obligatorio.");
+        }
+        if (porcentajeParticipacion != null &&
+                (porcentajeParticipacion.compareTo(BigDecimal.ZERO) < 0 || porcentajeParticipacion.compareTo(BigDecimal.valueOf(100)) > 0)) {
+            throw new IllegalArgumentException("El porcentaje de participacion debe estar entre 0 y 100.");
+        }
+
+        socio.setNombre(nombre.trim());
+        socio.setTelefono(telefono);
+        socio.setCorreo(correo != null ? correo.trim().toLowerCase() : null);
+        socio.setPorcentajeParticipacion(porcentajeParticipacion);
+        socio.setObservaciones(observaciones);
+        if (activo != null) {
+            socio.setActivo(activo);
+        }
+        return socioProyectoRepository.save(socio);
+    }
+
+    @Transactional(rollbackFor = Exception.class)
+    public SocioProyecto desactivarSocioProyecto(String correoUsuario, UUID socioId) {
+        Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
+        validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
+                "No tiene permisos para eliminar socios.");
+
+        SocioProyecto socio = socioProyectoRepository.findById(socioId)
+                .orElseThrow(() -> new IllegalArgumentException("Socio no encontrado."));
+        socio.setActivo(false);
+        return socioProyectoRepository.save(socio);
+    }
+
     public List<Map<String, Object>> obtenerSociosProyecto(String correoUsuario) {
         Usuario usuario = obtenerUsuarioActivoPorCorreo(correoUsuario);
         validarRol(usuario, List.of("CONTADOR", "ADMINISTRADOR"),
@@ -503,8 +560,20 @@ public class FinanzasService {
             totalPorSocio.put(socioId, totalPorSocio.getOrDefault(socioId, BigDecimal.ZERO).add(distribucion.getMonto()));
         }
 
+        List<AporteInversionista> aportes = aporteInversionistaRepository.findAll();
+        Map<UUID, BigDecimal> invertidoPorSocio = new HashMap<>();
+        for (AporteInversionista aporte : aportes) {
+            if (aporte.getSocio() == null) {
+                continue;
+            }
+            UUID socioId = aporte.getSocio().getId();
+            invertidoPorSocio.put(socioId, invertidoPorSocio.getOrDefault(socioId, BigDecimal.ZERO).add(aporte.getMonto()));
+        }
+
         List<Map<String, Object>> socios = new ArrayList<>();
         for (SocioProyecto socio : socioProyectoRepository.findAllByOrderByNombreAsc()) {
+            BigDecimal totalInvertido = invertidoPorSocio.getOrDefault(socio.getId(), BigDecimal.ZERO);
+            BigDecimal totalRecibido = totalPorSocio.getOrDefault(socio.getId(), BigDecimal.ZERO);
             Map<String, Object> item = new HashMap<>();
             item.put("id", socio.getId());
             item.put("nombre", socio.getNombre());
@@ -513,7 +582,9 @@ public class FinanzasService {
             item.put("porcentajeParticipacion", socio.getPorcentajeParticipacion());
             item.put("activo", socio.getActivo());
             item.put("observaciones", socio.getObservaciones() != null ? socio.getObservaciones() : "");
-            item.put("totalRecibido", totalPorSocio.getOrDefault(socio.getId(), BigDecimal.ZERO));
+            item.put("totalInvertido", totalInvertido);
+            item.put("totalRecibido", totalRecibido);
+            item.put("saldoPorRecuperar", totalInvertido.subtract(totalRecibido));
             socios.add(item);
         }
         return socios;
@@ -644,62 +715,7 @@ public class FinanzasService {
                 crearContratoReset(maria, 15, etapa3, "SEPARADO", 12, vendedor);
             }
         }
-        // Re-sembrar aportes demo
-        Usuario admin = usuarioRepository.findByCorreo("admin@almaros.com").orElse(null);
-        if (admin != null && aporteInversionistaRepository.count() == 0) {
-            AporteInversionista aporte1 = new AporteInversionista();
-            aporte1.setNombreInversionista("Socio Capital Norte");
-            aporte1.setMonto(BigDecimal.valueOf(45000000L));
-            aporte1.setFechaAporte(LocalDate.now().minusMonths(3));
-            aporte1.setDescripcion("Capital inicial para apertura de vías internas.");
-            aporte1.setRegistradoPor(admin);
-
-            AporteInversionista aporte2 = new AporteInversionista();
-            aporte2.setNombreInversionista("Fondo Inmobiliario Andes");
-            aporte2.setMonto(BigDecimal.valueOf(30000000L));
-            aporte2.setFechaAporte(LocalDate.now().minusMonths(1));
-            aporte2.setDescripcion("Refuerzo de caja para urbanismo y servicios.");
-            aporte2.setRegistradoPor(admin);
-            aporteInversionistaRepository.saveAll(List.of(aporte1, aporte2));
-        }
-        sembrarSociosYDistribucionesDemo(admin);
         System.out.println(">>> LA BASE DE DATOS FUE RESTABLECIDA CORRECTAMENTE AL ESTADO SEMILLA.");
-    }
-
-    private void sembrarSociosYDistribucionesDemo(Usuario admin) {
-        if (admin == null) {
-            return;
-        }
-
-        if (socioProyectoRepository.count() == 0) {
-            SocioProyecto socio1 = new SocioProyecto(null, "Socio 1", "3001112233", "socio1@almaros.com",
-                    BigDecimal.valueOf(25), true, "Participacion fundadora");
-            SocioProyecto socio2 = new SocioProyecto(null, "Socio 2", "3001112244", "socio2@almaros.com",
-                    BigDecimal.valueOf(25), true, "Participacion fundadora");
-            SocioProyecto socio3 = new SocioProyecto(null, "Socio 3", "3001112255", "socio3@almaros.com",
-                    BigDecimal.valueOf(25), true, "Participacion fundadora");
-            SocioProyecto socio4 = new SocioProyecto(null, "Socio 4", "3001112266", "socio4@almaros.com",
-                    BigDecimal.valueOf(25), true, "Participacion fundadora");
-            socioProyectoRepository.saveAll(List.of(socio1, socio2, socio3, socio4));
-        }
-
-        if (distribucionSocioRepository.count() == 0) {
-            List<SocioProyecto> socios = socioProyectoRepository.findAllByActivoTrueOrderByNombreAsc();
-            if (socios.size() >= 3) {
-                List<DistribucionSocio> demo = new ArrayList<>();
-                for (int i = 0; i < 3; i++) {
-                    DistribucionSocio distribucion = new DistribucionSocio();
-                    distribucion.setSocio(socios.get(i));
-                    distribucion.setRegistradoPor(admin);
-                    distribucion.setMonto(BigDecimal.valueOf(5000000L));
-                    distribucion.setFechaDistribucion(LocalDate.now().minusDays(20));
-                    distribucion.setReferencia("Venta Lote 13 - abono inicial");
-                    distribucion.setDescripcion("Distribucion parcial de recaudo a socios");
-                    demo.add(distribucion);
-                }
-                distribucionSocioRepository.saveAll(demo);
-            }
-        }
     }
 
     private boolean estaEnRango(LocalDate fecha, LocalDate inicio, LocalDate fin) {
