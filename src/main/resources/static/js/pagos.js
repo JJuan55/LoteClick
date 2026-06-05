@@ -24,6 +24,10 @@ document.addEventListener("DOMContentLoaded", () => {
             if (document.getElementById("menuSocios")) {
                 document.getElementById("menuSocios").style.display = "block";
             }
+        } else if (user.rol === "CONTADOR") {
+            if (document.getElementById("menuSocios")) {
+                document.getElementById("menuSocios").style.display = "block";
+            }
         }
         if (user.rol !== "ADMINISTRADOR" && document.getElementById("resetDbBtn")) {
             document.getElementById("resetDbBtn").style.display = "none";
@@ -107,17 +111,16 @@ document.addEventListener("DOMContentLoaded", () => {
 
     async function cargarSocios() {
         const sociosBody = document.getElementById("sociosTableBody");
-        if (!sociosBody) {
-            return;
-        }
 
-        sociosBody.innerHTML = `
-            <tr>
-                <td colspan="5" class="text-center py-4 text-muted">
-                    <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando socios...
-                </td>
-            </tr>
-        `;
+        if (sociosBody) {
+            sociosBody.innerHTML = `
+                <tr>
+                    <td colspan="5" class="text-center py-4 text-muted">
+                        <span class="spinner-border spinner-border-sm me-2" role="status"></span> Cargando socios...
+                    </td>
+                </tr>
+            `;
+        }
 
         try {
             const response = await fetch("/api/socios", {
@@ -130,43 +133,62 @@ document.addEventListener("DOMContentLoaded", () => {
             }
 
             sociosCache = Array.isArray(socios) ? socios : [];
-            sociosBody.innerHTML = "";
 
-            if (sociosCache.length === 0) {
-                sociosBody.innerHTML = `
-                    <tr>
-                        <td colspan="5" class="text-center py-4 text-muted">
-                            <i class="bi bi-info-circle fs-4 d-block mb-2"></i> No hay socios registrados.
-                        </td>
-                    </tr>
-                `;
-            } else {
-                sociosCache.forEach((socio) => {
-                    const tr = document.createElement("tr");
-                    tr.innerHTML = `
-                        <td class="fw-semibold text-navy">${socio.nombre}</td>
-                        <td class="small text-muted">
-                            ${socio.telefono || "Sin telefono"}<br>
-                            ${socio.correo || "Sin correo"}
-                        </td>
-                        <td class="small text-navy">${socio.porcentajeParticipacion != null ? `${socio.porcentajeParticipacion}%` : "Sin definir"}</td>
-                        <td class="fw-bold text-success">${formatCOP(socio.totalRecibido || 0)}</td>
-                        <td><span class="badge ${socio.activo ? "bg-success" : "bg-secondary"}">${socio.activo ? "ACTIVO" : "INACTIVO"}</span></td>
+            if (sociosBody) {
+                sociosBody.innerHTML = "";
+
+                if (sociosCache.length === 0) {
+                    sociosBody.innerHTML = `
+                        <tr>
+                            <td colspan="5" class="text-center py-4 text-muted">
+                                <i class="bi bi-info-circle fs-4 d-block mb-2"></i> No hay socios registrados.
+                            </td>
+                        </tr>
                     `;
-                    sociosBody.appendChild(tr);
-                });
+                } else {
+                    sociosCache.forEach((socio) => {
+                        const tr = document.createElement("tr");
+                        tr.innerHTML = `
+                            <td>
+                                <div class="fw-semibold text-navy">${socio.nombre}</div>
+                                <div class="small text-muted">${socio.telefono || "Sin telefono"} · ${socio.correo || "Sin correo"}</div>
+                                <div class="small text-muted">${socio.porcentajeParticipacion != null ? `${socio.porcentajeParticipacion}% participacion` : "Participacion sin definir"}</div>
+                                <span class="badge ${socio.activo ? "bg-success" : "bg-secondary"} mt-2">${socio.activo ? "ACTIVO" : "INACTIVO"}</span>
+                            </td>
+                            <td class="fw-bold text-success money-cell">${formatCOP(socio.totalInvertido || 0)}</td>
+                            <td class="fw-bold text-success money-cell">${formatCOP(socio.totalRecibido || 0)}</td>
+                            <td class="fw-bold ${(socio.saldoPorRecuperar || 0) > 0 ? "text-danger" : "text-success"} money-cell">${formatCOP(socio.saldoPorRecuperar || 0)}</td>
+                            <td class="text-end acciones-cell">
+                                <div class="btn-group btn-group-sm" role="group" aria-label="Acciones del socio">
+                                    <button type="button" class="btn btn-outline-primary btn-editar-socio" data-id="${socio.id}" title="Editar socio">
+                                        <i class="bi bi-pencil-square"></i> Editar
+                                    </button>
+                                    ${socio.activo
+                                        ? `<button type="button" class="btn btn-outline-danger btn-eliminar-socio" data-id="${socio.id}" data-nombre="${socio.nombre}" title="Eliminar socio"><i class="bi bi-trash"></i> Eliminar</button>`
+                                        : `<button type="button" class="btn btn-outline-success btn-reactivar-socio" data-id="${socio.id}" title="Reactivar socio"><i class="bi bi-arrow-clockwise"></i> Reactivar</button>`
+                                    }
+                                </div>
+                            </td>
+                        `;
+                        sociosBody.appendChild(tr);
+                    });
+                    registrarEventosSocios();
+                }
             }
 
             renderizarFormularioReparto();
+            renderizarSelectorAportes();
         } catch (error) {
             console.error(error);
-            sociosBody.innerHTML = `
-                <tr>
-                    <td colspan="5" class="text-center py-4 text-danger">
-                        <i class="bi bi-wifi-off fs-4 d-block mb-2"></i> ${error.message || "Error al cargar socios."}
-                    </td>
-                </tr>
-            `;
+            if (sociosBody) {
+                sociosBody.innerHTML = `
+                    <tr>
+                        <td colspan="5" class="text-center py-4 text-danger">
+                            <i class="bi bi-wifi-off fs-4 d-block mb-2"></i> ${error.message || "Error al cargar socios."}
+                        </td>
+                    </tr>
+                `;
+            }
             if (error.message && /sesión|Authorization|Bearer|autenticado|permisos/i.test(error.message)) {
                 manejarSesionInvalida(error.message);
             }
@@ -201,6 +223,108 @@ document.addEventListener("DOMContentLoaded", () => {
                 <input type="number" class="form-control reparto-monto" data-socio-id="${socio.id}" data-socio-nombre="${socio.nombre}" placeholder="Monto a entregar a ${socio.nombre}">
             </div>
         `).join("");
+    }
+
+    function renderizarSelectorAportes() {
+        const select = document.getElementById("aporteSocio");
+        if (!select) {
+            return;
+        }
+
+        const sociosActivos = sociosCache.filter((socio) => socio.activo);
+        select.innerHTML = `<option value="">Seleccione un socio...</option>`;
+        sociosActivos.forEach((socio) => {
+            const option = document.createElement("option");
+            option.value = socio.id;
+            option.textContent = socio.nombre;
+            select.appendChild(option);
+        });
+    }
+
+    function limpiarFormularioSocio() {
+        const socioForm = document.getElementById("socioForm");
+        if (socioForm) {
+            socioForm.reset();
+        }
+        document.getElementById("socioId").value = "";
+        document.getElementById("socioActivo").checked = true;
+        document.getElementById("socioActivoGroup").classList.add("d-none");
+        document.getElementById("socioModalLabel").innerHTML = `<i class="bi bi-person-plus-fill"></i> Registrar Socio del Proyecto`;
+        document.getElementById("btnConfirmarSocio").innerHTML = `<span class="spinner-border spinner-border-sm me-2 d-none" id="socioSpinner" role="status" aria-hidden="true"></span> Guardar Socio`;
+        document.getElementById("socioAlert").classList.add("d-none");
+    }
+
+    function abrirEdicionSocio(socio) {
+        document.getElementById("socioId").value = socio.id;
+        document.getElementById("socioNombre").value = socio.nombre || "";
+        document.getElementById("socioTelefono").value = socio.telefono || "";
+        document.getElementById("socioCorreo").value = socio.correo || "";
+        document.getElementById("socioParticipacion").value = socio.porcentajeParticipacion ?? "";
+        document.getElementById("socioObservaciones").value = socio.observaciones || "";
+        document.getElementById("socioActivo").checked = !!socio.activo;
+        document.getElementById("socioActivoGroup").classList.remove("d-none");
+        document.getElementById("socioModalLabel").innerHTML = `<i class="bi bi-pencil-square"></i> Editar Socio`;
+        document.getElementById("btnConfirmarSocio").innerHTML = `<span class="spinner-border spinner-border-sm me-2 d-none" id="socioSpinner" role="status" aria-hidden="true"></span> Guardar Cambios`;
+        document.getElementById("socioAlert").classList.add("d-none");
+        if (socioModal) socioModal.show();
+    }
+
+    function registrarEventosSocios() {
+        document.querySelectorAll(".btn-editar-socio").forEach((btn) => {
+            btn.addEventListener("click", () => {
+                const socio = sociosCache.find((item) => item.id === btn.dataset.id);
+                if (socio) {
+                    abrirEdicionSocio(socio);
+                }
+            });
+        });
+
+        document.querySelectorAll(".btn-eliminar-socio").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                if (!confirm(`¿Eliminar a ${btn.dataset.nombre}? Sus aportes y repartos históricos se conservan.`)) {
+                    return;
+                }
+                await cambiarEstadoSocio(btn.dataset.id, false);
+            });
+        });
+
+        document.querySelectorAll(".btn-reactivar-socio").forEach((btn) => {
+            btn.addEventListener("click", async () => {
+                await cambiarEstadoSocio(btn.dataset.id, true);
+            });
+        });
+    }
+
+    async function cambiarEstadoSocio(socioId, activo) {
+        const socio = sociosCache.find((item) => item.id === socioId);
+        if (!socio) {
+            return;
+        }
+
+        try {
+            const response = await fetch(`/api/socios/${socioId}`, {
+                method: activo ? "PUT" : "DELETE",
+                headers: getAuthHeaders({
+                    "Content-Type": "application/json"
+                }),
+                body: activo ? JSON.stringify({
+                    nombre: socio.nombre,
+                    telefono: socio.telefono,
+                    correo: socio.correo,
+                    porcentajeParticipacion: socio.porcentajeParticipacion,
+                    observaciones: socio.observaciones,
+                    activo: true
+                }) : undefined
+            });
+            const data = await parseApiResponse(response);
+            if (!response.ok) {
+                throw new Error(data.error || "No se pudo cambiar el estado del socio.");
+            }
+            await cargarSocios();
+        } catch (error) {
+            console.error(error);
+            alert(error.message || "Error al cambiar el estado del socio.");
+        }
     }
 
     // 3. Cargar listado de egresos
@@ -576,9 +700,28 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const aporteForm = document.getElementById("aporteForm");
     if (aporteForm) {
+        const aporteSocioSelect = document.getElementById("aporteSocio");
+        if (aporteSocioSelect) {
+            aporteSocioSelect.addEventListener("change", () => {
+                const socio = sociosCache.find((item) => item.id === aporteSocioSelect.value);
+                const nombreInput = document.getElementById("aporteNombre");
+                if (!nombreInput) {
+                    return;
+                }
+                if (socio) {
+                    nombreInput.value = socio.nombre;
+                    nombreInput.readOnly = true;
+                } else {
+                    nombreInput.value = "";
+                    nombreInput.readOnly = true;
+                }
+            });
+        }
+
         aporteForm.addEventListener("submit", async (e) => {
             e.preventDefault();
 
+            const socioId = document.getElementById("aporteSocio")?.value || "";
             const nombre = document.getElementById("aporteNombre").value.trim();
             const monto = document.getElementById("aporteMonto").value;
             const fecha = document.getElementById("aporteFecha").value;
@@ -588,8 +731,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const alertDiv = document.getElementById("aporteAlert");
             const alertText = document.getElementById("aporteAlertText");
 
-            if (!nombre || !monto || !fecha) {
-                alertText.textContent = "Nombre, monto y fecha del aporte son obligatorios.";
+            if (!socioId || !nombre || !monto || !fecha) {
+                alertText.textContent = "Seleccione un socio e ingrese monto y fecha del aporte.";
                 alertDiv.classList.remove("d-none");
                 return;
             }
@@ -605,6 +748,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         "Content-Type": "application/json"
                     }),
                     body: JSON.stringify({
+                        socioId,
                         nombreInversionista: nombre,
                         monto: parseFloat(monto),
                         fechaAporte: fecha,
@@ -616,10 +760,15 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (response.ok) {
                     if (aporteModal) aporteModal.hide();
                     aporteForm.reset();
+                    const nombreInput = document.getElementById("aporteNombre");
+                    if (nombreInput) {
+                        nombreInput.readOnly = false;
+                    }
                     if (aporteFechaInput) {
                         aporteFechaInput.value = new Date().toISOString().split('T')[0];
                     }
                     alert("Aporte de inversionista registrado correctamente.");
+                    await cargarSocios();
                     const filtros = obtenerFiltrosActuales();
                     cargarEgresos(filtros.fechaInicio, filtros.fechaFin, filtros.tipoSalida, filtros.rubro);
                 } else {
@@ -642,15 +791,22 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     const socioForm = document.getElementById("socioForm");
+    const btnNuevoSocio = document.getElementById("btnNuevoSocio");
+    if (btnNuevoSocio) {
+        btnNuevoSocio.addEventListener("click", limpiarFormularioSocio);
+    }
+
     if (socioForm) {
         socioForm.addEventListener("submit", async (e) => {
             e.preventDefault();
 
+            const socioId = document.getElementById("socioId").value;
             const nombre = document.getElementById("socioNombre").value.trim();
             const telefono = document.getElementById("socioTelefono").value.trim();
             const correo = document.getElementById("socioCorreo").value.trim();
             const porcentajeParticipacion = document.getElementById("socioParticipacion").value;
             const observaciones = document.getElementById("socioObservaciones").value.trim();
+            const activo = document.getElementById("socioActivo").checked;
             const spinner = document.getElementById("socioSpinner");
             const confirmBtn = document.getElementById("btnConfirmarSocio");
             const alertDiv = document.getElementById("socioAlert");
@@ -667,8 +823,8 @@ document.addEventListener("DOMContentLoaded", () => {
             alertDiv.classList.add("d-none");
 
             try {
-                const response = await fetch("/api/socios", {
-                    method: "POST",
+                const response = await fetch(socioId ? `/api/socios/${socioId}` : "/api/socios", {
+                    method: socioId ? "PUT" : "POST",
                     headers: getAuthHeaders({
                         "Content-Type": "application/json"
                     }),
@@ -677,14 +833,15 @@ document.addEventListener("DOMContentLoaded", () => {
                         telefono,
                         correo,
                         porcentajeParticipacion: porcentajeParticipacion ? parseFloat(porcentajeParticipacion) : null,
-                        observaciones
+                        observaciones,
+                        activo
                     })
                 });
 
                 const data = await parseApiResponse(response);
                 if (response.ok) {
                     if (socioModal) socioModal.hide();
-                    socioForm.reset();
+                    limpiarFormularioSocio();
                     await cargarSocios();
                 } else {
                     if (response.status === 400 && /sesión|Authorization|Bearer|autenticado|permisos/i.test(data.error || "")) {
